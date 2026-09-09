@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const archiver = require("archiver");
+import * as archiverModule from "archiver";
 import { getHistory } from "@/lib/storage";
+
+// 获取可靠的 archiver 压缩实例 (完美兼容 Archiver v8 ZipArchive 类与 v7/v6 历史版本的工厂函数)
+const createZipInstance = (options: { zlib: { level: number } }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod: any = archiverModule;
+  if (mod && typeof mod.ZipArchive === "function") {
+    return new mod.ZipArchive(options);
+  }
+  if (typeof mod === "function") {
+    return mod("zip", options);
+  }
+  if (mod && typeof mod.default === "function") {
+    return mod.default("zip", options);
+  }
+  if (mod && mod.default && typeof mod.default.ZipArchive === "function") {
+    return new mod.default.ZipArchive(options);
+  }
+  throw new Error("Failed to initialize zip compression engine from archiver module.");
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,7 +63,7 @@ export async function GET(req: NextRequest) {
     const zipFileName = `${safeBaseName}_backup_${targetItem.id}.zip`;
 
     // 创建 archiver 压缩实例
-    const archive = archiver("zip", {
+    const archive = createZipInstance({
       zlib: { level: 6 },
     });
 

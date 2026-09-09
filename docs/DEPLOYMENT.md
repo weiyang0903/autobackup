@@ -42,6 +42,17 @@
    npm install
    ```
 
+5. **（可选）导入初始数据库与演示测试数据**：
+   在新服务器上部署并用于测试备份功能时，可直接使用 XAMPP phpMyAdmin 或命令行将根目录下的 SQL 脚本导入 MySQL：
+   - `initial.sql`：创建基础系统数据库 `autobackup_init_db`，包含用户表、系统配置表与审计日志表结构及初始数据；
+   - `demo.sql`：创建业务演示数据库 `autobackup_demo_db`，包含客户、商品库存、订单及订单明细等丰富业务数据，便于测试多库组合备份与还原完整性。
+   
+   **通过命令行快速导入示例**：
+   ```cmd
+   C:\xampp\mysql\bin\mysql.exe -u root -p < initial.sql
+   C:\xampp\mysql\bin\mysql.exe -u root -p < demo.sql
+   ```
+
 ---
 
 ## 3. 运行模式一：Development（开发模式）

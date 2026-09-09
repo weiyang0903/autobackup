@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-09-09 - 修复 ZIP 下载 archiver 模块加载与删除备份空父目录清理
+
+### 新增
+- 根目录下新增 `initial.sql` 与 `demo.sql` 测试脚本，支持新服务器快速导入基础库与演示业务数据以进行多库备份测试。
+- 新增 `cleanEmptyParentDirectories` 递归清理机制，在删除单次备份后自动向上递归清理空的日期目录及规则专属目录，杜绝磁盘空文件夹残留。
+
+### 修复
+- 修复 `archiver` 初始化与打包异常：解决 Archiver v8 ESM 命名导出模式变更导致的 `Failed to initialize zip compression engine` 错误，实现对 Archiver v8 `ZipArchive` 类与历史版本工厂函数（`archiver('zip', ...)`）的双向安全兼容适配，并在 `next.config.ts` 中配置 `serverExternalPackages: ["mysql2", "node-cron", "archiver"]`。
+
+### 修改
+- 更新 `docs/DEPLOYMENT.md` 部署指南，补充 `initial.sql` 和 `demo.sql` 的作用、结构与导入使用说明。
+- 更新 `docs/BACKUP_HISTORY_MANAGEMENT.md`，完善空父目录向上递归清理流程与异常处理说明。
+
 ## 2026-09-09 - 定时调度支持多源文件夹备份与一键 ZIP 打包下载
 
 ### 新增
