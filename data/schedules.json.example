@@ -1,9 +1,24 @@
 [
   {
     "id": "sched_example_1",
-    "name": "Daily Midnight Backup",
+    "name": "Daily Midnight & Noon Backup",
     "databases": ["my_project_db"],
-    "cronExpression": "0 0 * * *",
+    "frequencyType": "daily",
+    "times": ["00:00", "12:00"],
+    "cronExpressions": ["0 0 * * *", "0 12 * * *"],
+    "backupDir": "./backups",
+    "enabled": true,
+    "createdAt": "2026-09-09T00:00:00.000Z",
+    "lastRun": null
+  },
+  {
+    "id": "sched_example_2",
+    "name": "Workday Nightly Backup",
+    "databases": ["my_project_db", "analytics_db"],
+    "frequencyType": "weekly",
+    "weekDays": [1, 2, 3, 4, 5],
+    "times": ["22:30"],
+    "cronExpressions": ["30 22 * * 1,2,3,4,5"],
     "backupDir": "./backups",
     "enabled": true,
     "createdAt": "2026-09-09T00:00:00.000Z",

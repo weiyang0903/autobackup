@@ -31,12 +31,22 @@ export interface BackupHistoryItem {
   errorMessage?: string | null;
 }
 
+// 定时任务调度频率类型
+export type ScheduleFrequencyType = "hourly" | "daily" | "weekly";
+
 // 定时任务调度配置
 export interface ScheduleItem {
   id: string;
   name: string;
   databases: string[];
-  cronExpression: string;
+  // 可视化调度配置
+  frequencyType: ScheduleFrequencyType;
+  weekDays?: number[]; // 0=周日, 1=周一, 2=周二, 3=周三, 4=周四, 5=周五, 6=周六
+  times?: string[]; // 格式 ["09:00", "14:30"]
+  // 编译出的标准 Cron 表达式数组
+  cronExpressions: string[];
+  // 兼容老字段
+  cronExpression?: string;
   backupDir: string;
   enabled: boolean;
   createdAt: string;

@@ -1,20 +1,61 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Plus, Trash2, Power, AlertCircle, Calendar } from "lucide-react";
-import { ScheduleItem } from "@/types";
+import {
+  Clock,
+  Plus,
+  Trash2,
+  Power,
+  AlertCircle,
+  Calendar,
+  X,
+  Sparkles,
+  Check,
+} from "lucide-react";
+import { ScheduleItem, ScheduleFrequencyType } from "@/types";
 
 interface ScheduleManagerProps {
   availableDatabases: string[];
   defaultBackupDir: string;
 }
 
-// 预设常用周期
-const PRESET_CRONS = [
-  { label: "Every Hour", cron: "0 * * * *", desc: "At minute 0 of every hour" },
-  { label: "Every 6 Hours", cron: "0 */6 * * *", desc: "Every 6 hours" },
-  { label: "Daily at Midnight (00:00)", cron: "0 0 * * *", desc: "Every day at 00:00" },
-  { label: "Daily at 03:00 AM", cron: "0 3 * * *", desc: "Every night at 03:00 AM" },
-  { label: "Weekly (Every Sunday 02:00 AM)", cron: "0 2 * * 0", desc: "Once a week on Sunday" },
+const WEEK_DAYS = [
+  { index: 1, label: "Mon", full: "Monday" },
+  { index: 2, label: "Tue", full: "Tuesday" },
+  { index: 3, label: "Wed", full: "Wednesday" },
+  { index: 4, label: "Thu", full: "Thursday" },
+  { index: 5, label: "Fri", full: "Friday" },
+  { index: 6, label: "Sat", full: "Saturday" },
+  { index: 0, label: "Sun", full: "Sunday" },
 ];
+
+/**
+ * 将调度规则格式化为人类易读的描述文本
+ */
+function formatScheduleSummary(item: ScheduleItem): string {
+  if (item.frequencyType === "hourly") {
+    return "Every Hour (at :00)";
+  }
+
+  const timesStr =
+    item.times && item.times.length > 0
+      ? item.times.join(", ")
+      : item.cronExpressions?.join(", ") || "00:00";
+
+  if (item.frequencyType === "daily") {
+    return `Daily at ${timesStr}`;
+  }
+
+  if (item.frequencyType === "weekly") {
+    const dayNames =
+      item.weekDays && item.weekDays.length > 0
+        ? item.weekDays
+            .map((d) => WEEK_DAYS.find((w) => w.index === d)?.label || `Day ${d}`)
+            .join(", ")
+        : "Sunday";
+    return `Weekly on [${dayNames}] at ${timesStr}`;
+  }
+
+  return item.cronExpressions?.[0] || "Custom";
+}
 
 export function ScheduleManager({
   availableDatabases,
@@ -27,7 +68,16 @@ export function ScheduleManager({
   // 表单状态
   const [name, setName] = useState("");
   const [selectedDbs, setSelectedDbs] = useState<string[]>([]);
-  const [cronExpression, setCronExpression] = useState("0 0 * * *");
+  const [frequencyType, setFrequencyType] =
+    useState<ScheduleFrequencyType>("hourly");
+
+  // Daily / Weekly 的时间点列表 (默认 09:00)
+  const [timesList, setTimesList] = useState<string[]>(["09:00"]);
+  const [currentTimeInput, setCurrentTimeInput] = useState("18:00");
+
+  // Weekly 的选中星期 (默认周一 Mon)
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([1]);
+
   const [backupDir, setBackupDir] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +102,42 @@ export function ScheduleManager({
     fetchSchedules();
   }, []);
 
+  // 添加时间点
+  const handleAddTime = () => {
+    if (!currentTimeInput) return;
+    if (timesList.includes(currentTimeInput)) {
+      setFormError(`Time ${currentTimeInput} is already added`);
+      return;
+    }
+    setFormError(null);
+    setTimesList([...timesList, currentTimeInput].sort());
+  };
+
+  // 移除时间点
+  const handleRemoveTime = (timeToRemove: string) => {
+    if (timesList.length === 1) {
+      setFormError("At least one backup time must be configured");
+      return;
+    }
+    setFormError(null);
+    setTimesList(timesList.filter((t) => t !== timeToRemove));
+  };
+
+  // 切换星期选择
+  const handleToggleWeekDay = (dayIndex: number) => {
+    if (selectedWeekDays.includes(dayIndex)) {
+      if (selectedWeekDays.length === 1) {
+        setFormError("Please select at least one day for weekly backup");
+        return;
+      }
+      setFormError(null);
+      setSelectedWeekDays(selectedWeekDays.filter((d) => d !== dayIndex));
+    } else {
+      setFormError(null);
+      setSelectedWeekDays([...selectedWeekDays, dayIndex]);
+    }
+  };
+
   // 提交新建调度
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +153,19 @@ export function ScheduleManager({
       return;
     }
 
+    if (
+      (frequencyType === "daily" || frequencyType === "weekly") &&
+      timesList.length === 0
+    ) {
+      setFormError("Please add at least one backup time (e.g. 09:00)");
+      return;
+    }
+
+    if (frequencyType === "weekly" && selectedWeekDays.length === 0) {
+      setFormError("Please select at least one day of the week");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/schedules", {
@@ -75,7 +174,9 @@ export function ScheduleManager({
         body: JSON.stringify({
           name: name.trim(),
           databases: selectedDbs,
-          cronExpression: cronExpression.trim(),
+          frequencyType,
+          times: frequencyType !== "hourly" ? timesList : undefined,
+          weekDays: frequencyType === "weekly" ? selectedWeekDays : undefined,
           backupDir: backupDir.trim() || defaultBackupDir,
           enabled: true,
         }),
@@ -86,7 +187,9 @@ export function ScheduleManager({
         setIsCreating(false);
         setName("");
         setSelectedDbs([]);
-        setCronExpression("0 0 * * *");
+        setFrequencyType("hourly");
+        setTimesList(["09:00"]);
+        setSelectedWeekDays([1]);
         setBackupDir("");
         fetchSchedules();
       } else {
@@ -122,7 +225,11 @@ export function ScheduleManager({
 
   // 删除调度
   const handleDelete = async (id: string, scheduleName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the schedule '${scheduleName}'?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete the schedule '${scheduleName}'?`
+      )
+    ) {
       return;
     }
     try {
@@ -142,7 +249,7 @@ export function ScheduleManager({
         <div>
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
             <Clock className="w-4 h-4 text-purple-600" />
-            Automated Schedules (Cron)
+            Automated Schedules
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Configure periodic background tasks to export MySQL databases automatically
@@ -164,12 +271,12 @@ export function ScheduleManager({
       {isCreating && (
         <form
           onSubmit={handleCreateSchedule}
-          className="mb-5 p-4 bg-purple-50/50 border border-purple-200 rounded-xl space-y-3.5"
+          className="mb-5 p-5 bg-purple-50/40 border border-purple-200 rounded-xl space-y-4"
         >
-          <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+          <div className="flex items-center justify-between border-b border-purple-100 pb-2.5">
             <h3 className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              Add New Backup Schedule
+              <Calendar className="w-3.5 h-3.5 text-purple-600" />
+              Configure New Backup Schedule
             </h3>
             <button
               type="button"
@@ -194,7 +301,7 @@ export function ScheduleManager({
             </label>
             <input
               type="text"
-              placeholder="e.g. Daily Midnight Backup"
+              placeholder="e.g. Daily Production Backup"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -220,9 +327,9 @@ export function ScheduleManager({
                         setSelectedDbs([...selectedDbs, db]);
                       }
                     }}
-                    className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
                       isChecked
-                        ? "bg-purple-600 text-white border-purple-600"
+                        ? "bg-purple-600 text-white border-purple-600 shadow-xs"
                         : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >
@@ -233,38 +340,155 @@ export function ScheduleManager({
             </div>
           </div>
 
-          {/* Frequency & Cron Expression */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Quick Frequency Preset
-              </label>
-              <select
-                onChange={(e) => setCronExpression(e.target.value)}
-                value={cronExpression}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          {/* Frequency Type Selector (Every Hour / Daily / Weekly) */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              Backup Frequency *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setFrequencyType("hourly")}
+                className={`py-2 px-3 rounded-lg border text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                  frequencyType === "hourly"
+                    ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
               >
-                {PRESET_CRONS.map((p) => (
-                  <option key={p.cron} value={p.cron}>
-                    {p.label} ({p.cron})
-                  </option>
-                ))}
-              </select>
-            </div>
+                <span>Every Hour</span>
+                <span
+                  className={`text-[10px] font-normal ${
+                    frequencyType === "hourly" ? "text-purple-100" : "text-slate-400"
+                  }`}
+                >
+                  At minute :00
+                </span>
+              </button>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Custom Cron Expression *
-              </label>
-              <input
-                type="text"
-                value={cronExpression}
-                onChange={(e) => setCronExpression(e.target.value)}
-                placeholder="* * * * *"
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+              <button
+                type="button"
+                onClick={() => setFrequencyType("daily")}
+                className={`py-2 px-3 rounded-lg border text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                  frequencyType === "daily"
+                    ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <span>Daily</span>
+                <span
+                  className={`text-[10px] font-normal ${
+                    frequencyType === "daily" ? "text-purple-100" : "text-slate-400"
+                  }`}
+                >
+                  Specific time(s)
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFrequencyType("weekly")}
+                className={`py-2 px-3 rounded-lg border text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                  frequencyType === "weekly"
+                    ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <span>Weekly</span>
+                <span
+                  className={`text-[10px] font-normal ${
+                    frequencyType === "weekly" ? "text-purple-100" : "text-slate-400"
+                  }`}
+                >
+                  Chosen days & times
+                </span>
+              </button>
             </div>
           </div>
+
+          {/* Sub-panel 1: Every Hour Info */}
+          {frequencyType === "hourly" && (
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>
+                Backups will run automatically at minute 0 of every hour (e.g. 01:00, 02:00, 03:00...).
+              </span>
+            </div>
+          )}
+
+          {/* Sub-panel 2 & 3: Weekly Days Selector */}
+          {frequencyType === "weekly" && (
+            <div className="bg-white p-3.5 border border-slate-200 rounded-lg space-y-2">
+              <label className="block text-xs font-medium text-slate-700">
+                Select Days of Week (Select any number of days) *
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {WEEK_DAYS.map((day) => {
+                  const isSelected = selectedWeekDays.includes(day.index);
+                  return (
+                    <button
+                      type="button"
+                      key={day.index}
+                      onClick={() => handleToggleWeekDay(day.index)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        isSelected
+                          ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Sub-panel: Multi-Time Picker (For Daily & Weekly) */}
+          {(frequencyType === "daily" || frequencyType === "weekly") && (
+            <div className="bg-white p-3.5 border border-slate-200 rounded-lg space-y-2.5">
+              <label className="block text-xs font-medium text-slate-700">
+                Backup Times (Add one or multiple times) *
+              </label>
+
+              {/* Time Input & Add Button */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={currentTimeInput}
+                  onChange={(e) => setCurrentTimeInput(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTime}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Time</span>
+                </button>
+              </div>
+
+              {/* Added Times Tags */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {timesList.map((time) => (
+                  <span
+                    key={time}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100/70 border border-purple-200 text-purple-900 rounded-lg text-xs font-mono font-medium"
+                  >
+                    <span>{time}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTime(time)}
+                      className="text-purple-400 hover:text-purple-700 transition-colors"
+                      title="Remove time"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Backup Directory */}
           <div>
@@ -280,7 +504,7 @@ export function ScheduleManager({
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-purple-100">
             <button
               type="button"
               onClick={() => setIsCreating(false)}
@@ -301,7 +525,9 @@ export function ScheduleManager({
 
       {/* Schedules List */}
       {loading ? (
-        <div className="py-8 text-center text-xs text-slate-400">Loading schedules...</div>
+        <div className="py-8 text-center text-xs text-slate-400">
+          Loading schedules...
+        </div>
       ) : schedules.length === 0 ? (
         <div className="py-8 text-center text-slate-500 text-xs bg-slate-50 rounded-lg border border-dashed border-slate-200">
           No automated schedules configured yet. Click "New Schedule" to create one.
@@ -330,17 +556,23 @@ export function ScheduleManager({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-1">
-                  <span>
-                    Cron: <code className="bg-white px-1 py-0.5 rounded border text-purple-700 font-mono">{item.cronExpression}</code>
+                  <span className="inline-flex items-center gap-1 font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                    <Clock className="w-3 h-3 text-purple-500" />
+                    {formatScheduleSummary(item)}
                   </span>
                   <span>•</span>
                   <span>
-                    Databases: <strong className="text-slate-700 font-medium">{item.databases.join(", ")}</strong>
+                    Databases:{" "}
+                    <strong className="text-slate-700 font-medium">
+                      {item.databases.join(", ")}
+                    </strong>
                   </span>
                   {item.lastRun && (
                     <>
                       <span>•</span>
-                      <span>Last run: {new Date(item.lastRun).toLocaleString()}</span>
+                      <span>
+                        Last run: {new Date(item.lastRun).toLocaleString()}
+                      </span>
                     </>
                   )}
                 </div>
