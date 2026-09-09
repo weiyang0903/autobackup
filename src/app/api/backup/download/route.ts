@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
 
     const stat = fs.statSync(filePath);
     const fileBuffer = fs.readFileSync(filePath);
-    const fileName = targetItem.fileName || path.basename(filePath);
+    // 确保下载弹窗展示纯文件名（如 db_2026-09-09_120000.sql）
+    const pureFileName = path.basename(filePath);
 
     return new NextResponse(fileBuffer, {
       status: 200,
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
         "Content-Type": "application/sql",
         "Content-Length": stat.size.toString(),
         "Content-Disposition": `attachment; filename="${encodeURIComponent(
-          fileName
+          pureFileName
         )}"`,
       },
     });

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-09 - 备份文件按当天日期创建子目录归档存储
+
+### 新增
+- 备份导出引擎新增按当天日期（YYYY-MM-DD）自动创建子文件夹并智能追加写入功能。
+
+### 修改
+- 优化 mysqldump 导出路径生成与历史记录元数据结构，文件物理路径和下载逻辑完整适配日期子目录。
+- 同步更新 docs/MANUAL_BACKUP.md、docs/SCHEDULED_BACKUP.md、docs/BACKUP_HISTORY_MANAGEMENT.md 现行文档与 data/history.json.example 模板。
+
 ## 2026-09-09 - 定时备份调度器可视化改造与多时间点支持
 
 ### 新增

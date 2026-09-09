@@ -7,17 +7,24 @@ import { addHistoryItem } from "./storage";
 import { BackupHistoryItem, BackupTriggerType } from "@/types";
 
 /**
- * 格式化时间戳为安全的文件名后缀 (YYYY-MM-DD_HHmmss)
+ * 格式化当前日期为 YYYY-MM-DD (用于子文件夹命名)
  */
-function getTimestampString(): string {
-  const now = new Date();
+function getDateFolderString(now: Date): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * 格式化时间戳为安全的文件名后缀 (YYYY-MM-DD_HHmmss)
+ */
+function getTimestampString(now: Date): string {
+  const dateStr = getDateFolderString(now);
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const seconds = String(now.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}_${hours}${minutes}${seconds}`;
+  return `${dateStr}_${hours}${minutes}${seconds}`;
 }
 
 /**
@@ -38,6 +45,7 @@ export async function executeBackup(options: {
 }): Promise<BackupHistoryItem> {
   const { databases, customBackupDir, triggerType, scheduleName } = options;
   const startTime = Date.now();
+  const nowDate = new Date();
 
   // 1. 基础校验
   if (!databases || databases.length === 0) {
@@ -50,24 +58,32 @@ export async function executeBackup(options: {
     }
   }
 
-  // 2. 目录校验与创建
-  const targetDir =
+  // 2. 根目录校验与解析
+  const targetRoot =
     customBackupDir || process.env.DEFAULT_BACKUP_DIR || "./backups";
-  const validation = resolveAndValidateBackupDir(targetDir);
+  const validation = resolveAndValidateBackupDir(targetRoot);
   if (!validation.isValid) {
     throw new Error(validation.error || "Invalid backup directory");
   }
-  const resolvedDir = validation.resolvedPath;
+  const resolvedRootDir = validation.resolvedPath;
 
-  // 3. 构造输出文件名
-  const timestampStr = getTimestampString();
+  // 3. 自动按当天日期建立/定位子文件夹 (YYYY-MM-DD)
+  const dateFolder = getDateFolderString(nowDate);
+  const targetDateDir = path.join(resolvedRootDir, dateFolder);
+  if (!fs.existsSync(targetDateDir)) {
+    fs.mkdirSync(targetDateDir, { recursive: true });
+  }
+
+  // 4. 构造输出文件名与路径
+  const timestampStr = getTimestampString(nowDate);
   const dbPrefix =
     databases.length === 1 ? databases[0] : `multiple_${databases.length}_dbs`;
-  const fileName = `${dbPrefix}_${timestampStr}.sql`;
-  const finalFilePath = path.join(resolvedDir, fileName);
-  const tempFilePath = path.join(resolvedDir, `${fileName}.${Date.now()}.tmp`);
+  const rawFileName = `${dbPrefix}_${timestampStr}.sql`;
+  const displayFileName = `${dateFolder}/${rawFileName}`;
+  const finalFilePath = path.join(targetDateDir, rawFileName);
+  const tempFilePath = path.join(targetDateDir, `${rawFileName}.${Date.now()}.tmp`);
 
-  // 4. 获取连接与 mysqldump 路径配置
+  // 5. 获取连接与 mysqldump 路径配置
   const dbConfig = getDbConfig();
   const mysqldumpPath =
     process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
@@ -76,12 +92,12 @@ export async function executeBackup(options: {
     const errorMsg = `mysqldump executable not found at path: ${mysqldumpPath}`;
     const historyItem: BackupHistoryItem = {
       id: generateId(),
-      timestamp: new Date().toISOString(),
+      timestamp: nowDate.toISOString(),
       triggerType,
       scheduleName,
       databases,
       filePath: finalFilePath,
-      fileName,
+      fileName: displayFileName,
       fileSize: 0,
       durationMs: Date.now() - startTime,
       status: "FAILED",
@@ -91,13 +107,7 @@ export async function executeBackup(options: {
     throw new Error(errorMsg);
   }
 
-  // 5. 组装 mysqldump 参数
-  // 参数说明：
-  // --host, --port, --user, --password
-  // --routines (导出存储过程和函数)
-  // --triggers (导出触发器)
-  // --single-transaction (在 InnoDB 上保证一致性快照且不锁表)
-  // --databases (多库模式)
+  // 6. 组装 mysqldump 参数
   const args: string[] = [
     `--host=${dbConfig.host}`,
     `--port=${dbConfig.port}`,
@@ -116,7 +126,7 @@ export async function executeBackup(options: {
     args.push("--databases", ...databases);
   }
 
-  // 6. 执行子进程并将 stdout 管道写入临时文件
+  // 7. 执行子进程并将 stdout 管道写入临时文件
   return new Promise<BackupHistoryItem>((resolve, reject) => {
     const writeStream = fs.createWriteStream(tempFilePath, {
       flags: "w",
@@ -150,7 +160,7 @@ export async function executeBackup(options: {
         scheduleName,
         databases,
         filePath: finalFilePath,
-        fileName,
+        fileName: displayFileName,
         fileSize: 0,
         durationMs: Date.now() - startTime,
         status: "FAILED",
@@ -176,7 +186,7 @@ export async function executeBackup(options: {
             scheduleName,
             databases,
             filePath: finalFilePath,
-            fileName,
+            fileName: displayFileName,
             fileSize: stats.size,
             durationMs: Date.now() - startTime,
             status: "SUCCESS",
@@ -200,7 +210,7 @@ export async function executeBackup(options: {
             scheduleName,
             databases,
             filePath: finalFilePath,
-            fileName,
+            fileName: displayFileName,
             fileSize: 0,
             durationMs: Date.now() - startTime,
             status: "FAILED",
@@ -226,7 +236,7 @@ export async function executeBackup(options: {
           scheduleName,
           databases,
           filePath: finalFilePath,
-          fileName,
+          fileName: displayFileName,
           fileSize: 0,
           durationMs: Date.now() - startTime,
           status: "FAILED",
