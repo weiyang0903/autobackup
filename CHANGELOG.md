@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-09 - 备份存储路径多层级精细化归档改造
+
+### 新增
+- 手动导出文件结构升级为自动存入 Immediate_Manual_Export/YYYY-MM-DD/ 两级子目录。
+- 定时调度文件结构升级为自动存入 scheduleName_id/YYYY-MM-DD/HH_mm_ss/ 三级深度子目录。
+- 导出引擎新增规则名称安全转义与多级子目录递归创建支持。
+
+### 修改
+- 调度器触发时透传 scheduleId 以精确生成专属归档目录。
+- 重写 docs/MANUAL_BACKUP.md、docs/SCHEDULED_BACKUP.md、docs/BACKUP_HISTORY_MANAGEMENT.md 现行文档与 data/history.json.example 模板。
+
 ## 2026-09-09 - 备份文件按当天日期创建子目录归档存储
 
 ### 新增

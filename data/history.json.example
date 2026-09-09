@@ -1,14 +1,27 @@
 [
   {
     "id": "hist_example_1",
-    "timestamp": "2026-09-09T12:00:00.000Z",
+    "timestamp": "2026-09-09T15:30:00.000Z",
     "triggerType": "manual",
     "scheduleName": null,
     "databases": ["my_project_db"],
-    "filePath": "C:\\xampp\\htdocs\\autobackup\\backups\\2026-09-09\\my_project_db_2026-09-09_120000.sql",
-    "fileName": "2026-09-09/my_project_db_2026-09-09_120000.sql",
+    "filePath": "C:\\xampp\\htdocs\\autobackup\\backups\\Immediate_Manual_Export\\2026-09-09\\my_project_db_2026-09-09_153000.sql",
+    "fileName": "Immediate_Manual_Export/2026-09-09/my_project_db_2026-09-09_153000.sql",
     "fileSize": 1048576,
     "durationMs": 350,
+    "status": "SUCCESS",
+    "errorMessage": null
+  },
+  {
+    "id": "hist_example_2",
+    "timestamp": "2026-09-09T09:00:00.000Z",
+    "triggerType": "scheduled",
+    "scheduleName": "Daily_Production",
+    "databases": ["my_project_db", "analytics_db"],
+    "filePath": "C:\\xampp\\htdocs\\autobackup\\backups\\Daily_Production_sched_123\\2026-09-09\\09_00_00\\multiple_2_dbs_2026-09-09_090000.sql",
+    "fileName": "Daily_Production_sched_123/2026-09-09/09_00_00/multiple_2_dbs_2026-09-09_090000.sql",
+    "fileSize": 2097152,
+    "durationMs": 420,
     "status": "SUCCESS",
     "errorMessage": null
   }

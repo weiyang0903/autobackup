@@ -1,12 +1,12 @@
 # 即时手动导出备份功能 (MANUAL_BACKUP.md)
 
-本文档详细说明通过 Web 页面立即触发 MySQL 数据库导出的完整流程、mysqldump 封装规则、按日期分文件夹存储规范与错误保障。
+本文档详细说明通过 Web 页面立即触发 MySQL 数据库导出的完整流程、mysqldump 封装规则、`Immediate_Manual_Export/YYYY-MM-DD` 分级存储规范与错误保障。
 
 ---
 
 ## 1. 功能概述
 
-用户在界面选择目标数据库后，可指定自定义目标根目录（或直接使用系统默认目录），点击 "Export Now" 按钮立即由后端调用 XAMPP `mysqldump.exe` 进行导出。系统会在目标目录下**自动以当天日期（YYYY-MM-DD）创建子文件夹**并生成标准的 `.sql` 文件，如果文件夹已存在则自动存入该文件夹中。
+用户在界面选择目标数据库后，可指定自定义目标根目录（或直接使用系统默认目录），点击 "Export Now" 按钮立即由后端调用 XAMPP `mysqldump.exe` 进行导出。系统会在目标根目录下自动创建 `Immediate_Manual_Export/` 专属文件夹，并在其内部按当天日期（`YYYY-MM-DD`）创建子目录，将生成的 `.sql` 文件存入其中。
 
 ---
 
@@ -19,18 +19,18 @@ sequenceDiagram
     participant UI as 前端控制台
     participant API as /api/backup/manual
     participant Dump as mysqldump 子进程
-    participant Storage as 文件系统 (按日期建目录) & history.json
+    participant Storage as 文件系统 (Immediate_Manual_Export/日期) & history.json
 
     User->>UI: 勾选目标数据库并点击 Export Now
     UI->>API: POST 请求 (databases, customBackupDir)
     API->>API: 校验数据库名与目标路径合法性
-    API->>Storage: 计算当前日期 YYYY-MM-DD 并创建日期子文件夹
-    API->>Storage: 在日期子文件夹下创建临时输出文件 (.sql.tmp)
+    API->>Storage: 构建 Immediate_Manual_Export/YYYY-MM-DD 目录并递归创建
+    API->>Storage: 在该子目录下创建临时输出文件 (.sql.tmp)
     API->>Dump: 启动子进程执行 mysqldump 并流式写入
     alt 导出成功 (Exit Code 0)
         Dump-->>API: 进程结束 (code 0)
         API->>Storage: 重命名临时文件为正式 .sql 文件
-        API->>Storage: 写入成功记录至 history.json (包含子目录路径)
+        API->>Storage: 写入成功记录至 history.json (包含完整层级路径)
         API-->>UI: 返回成功响应 (fileName, size, duration)
         UI-->>User: 绿色勾选提示并刷新历史列表
     else 导出失败 (Exit Code != 0 或异常)
@@ -46,21 +46,20 @@ sequenceDiagram
 
 ## 3. 存储目录与文件命名规范
 
-1. **按日期自动分文件夹归类**：
-   - 目标根目录为 `backups/`（或自定义路径）；
-   - 系统自动生成子目录 `backups/YYYY-MM-DD/`（例如 `backups/2026-09-09/`）；
-   - **智能追加**：若当天日期文件夹已存在，直接存入其中，不重复创建或报错。
-2. **文件命名格式**：
-   - 单库导出：`{databaseName}_{YYYY-MM-DD_HHmmss}.sql`（例如 `shop_db_2026-09-09_140000.sql`）；
+1. **手动备份目录层级**：
+   - 目标根目录为 `backups/`（或用户自定义路径）；
+   - 第一级目录：`Immediate_Manual_Export/`；
+   - 第二级目录：`YYYY-MM-DD/`（例如 `2026-09-09/`）；
+   - 最终完整路径：`backups/Immediate_Manual_Export/2026-09-09/{db}_{YYYY-MM-DD_HHmmss}.sql`。
+2. **智能追加**：
+   - 若当天该日期目录已存在，系统直接将新的手动备份文件存入其中，不重复创建或报错。
+3. **文件命名格式**：
+   - 单库导出：`{databaseName}_{YYYY-MM-DD_HHmmss}.sql`（例如 `shop_db_2026-09-09_153000.sql`）；
    - 多库批量导出：`multiple_{count}_dbs_{YYYY-MM-DD_HHmmss}.sql`。
-3. **`mysqldump` 参数组合**：
+4. **`mysqldump` 参数组合**：
    - `--routines`：导出存储过程和自定义函数；
    - `--triggers`：导出数据表关联的触发器；
    - `--single-transaction`：针对 InnoDB 引擎开启一致性非阻塞快照导出，避免锁死生产表。
-4. **临时文件安全防护**：
-   - 导出中一律先写入 `.tmp` 临时文件；
-   - 必须在子进程退出码为 `0` 时才执行 `fs.renameSync`；
-   - 发生任何错误时，立即执行清理删除临时文件，防止产生半截的损坏 SQL。
 
 ---
 

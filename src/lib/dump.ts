@@ -7,13 +7,23 @@ import { addHistoryItem } from "./storage";
 import { BackupHistoryItem, BackupTriggerType } from "@/types";
 
 /**
- * 格式化当前日期为 YYYY-MM-DD (用于子文件夹命名)
+ * 格式化当前日期为 YYYY-MM-DD (用于日期子文件夹命名)
  */
 function getDateFolderString(now: Date): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * 格式化当前时间为 HH_mm_ss (用于时间子文件夹命名)
+ */
+function getTimeFolderString(now: Date): string {
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  return `${hours}_${minutes}_${seconds}`;
 }
 
 /**
@@ -25,6 +35,13 @@ function getTimestampString(now: Date): string {
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const seconds = String(now.getSeconds()).padStart(2, "0");
   return `${dateStr}_${hours}${minutes}${seconds}`;
+}
+
+/**
+ * 安全化调度规则名称（替换文件系统非法字符与空格）
+ */
+function sanitizeFolderName(name: string): string {
+  return name.replace(/[/\\?%*:|"<> ]/g, "_");
 }
 
 /**
@@ -42,8 +59,10 @@ export async function executeBackup(options: {
   customBackupDir?: string;
   triggerType: BackupTriggerType;
   scheduleName?: string | null;
+  scheduleId?: string | null;
 }): Promise<BackupHistoryItem> {
-  const { databases, customBackupDir, triggerType, scheduleName } = options;
+  const { databases, customBackupDir, triggerType, scheduleName, scheduleId } =
+    options;
   const startTime = Date.now();
   const nowDate = new Date();
 
@@ -67,11 +86,38 @@ export async function executeBackup(options: {
   }
   const resolvedRootDir = validation.resolvedPath;
 
-  // 3. 自动按当天日期建立/定位子文件夹 (YYYY-MM-DD)
+  // 3. 根据触发模式构建多层级子目录
   const dateFolder = getDateFolderString(nowDate);
-  const targetDateDir = path.join(resolvedRootDir, dateFolder);
-  if (!fs.existsSync(targetDateDir)) {
-    fs.mkdirSync(targetDateDir, { recursive: true });
+  let targetSubDir = "";
+  let relativeDirPrefix = "";
+
+  if (triggerType === "manual") {
+    // 模式一：手动即时导出 -> Immediate_Manual_Export / YYYY-MM-DD
+    targetSubDir = path.join(
+      resolvedRootDir,
+      "Immediate_Manual_Export",
+      dateFolder
+    );
+    relativeDirPrefix = `Immediate_Manual_Export/${dateFolder}`;
+  } else {
+    // 模式二：定时自动调度 -> scheduleName_id / YYYY-MM-DD / HH_mm_ss
+    const safeName = sanitizeFolderName(scheduleName || "schedule");
+    const safeId = sanitizeFolderName(scheduleId || "unknown");
+    const scheduleFolder = `${safeName}_${safeId}`;
+    const timeFolder = getTimeFolderString(nowDate);
+
+    targetSubDir = path.join(
+      resolvedRootDir,
+      scheduleFolder,
+      dateFolder,
+      timeFolder
+    );
+    relativeDirPrefix = `${scheduleFolder}/${dateFolder}/${timeFolder}`;
+  }
+
+  // 自动递归创建多级子文件夹
+  if (!fs.existsSync(targetSubDir)) {
+    fs.mkdirSync(targetSubDir, { recursive: true });
   }
 
   // 4. 构造输出文件名与路径
@@ -79,9 +125,12 @@ export async function executeBackup(options: {
   const dbPrefix =
     databases.length === 1 ? databases[0] : `multiple_${databases.length}_dbs`;
   const rawFileName = `${dbPrefix}_${timestampStr}.sql`;
-  const displayFileName = `${dateFolder}/${rawFileName}`;
-  const finalFilePath = path.join(targetDateDir, rawFileName);
-  const tempFilePath = path.join(targetDateDir, `${rawFileName}.${Date.now()}.tmp`);
+  const displayFileName = `${relativeDirPrefix}/${rawFileName}`;
+  const finalFilePath = path.join(targetSubDir, rawFileName);
+  const tempFilePath = path.join(
+    targetSubDir,
+    `${rawFileName}.${Date.now()}.tmp`
+  );
 
   // 5. 获取连接与 mysqldump 路径配置
   const dbConfig = getDbConfig();

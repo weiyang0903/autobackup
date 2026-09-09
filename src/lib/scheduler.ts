@@ -113,6 +113,7 @@ function registerCronTask(schedule: ScheduleItem): void {
               customBackupDir: schedule.backupDir,
               triggerType: "scheduled",
               scheduleName: schedule.name,
+              scheduleId: schedule.id,
             });
 
             // 更新上次执行时间
