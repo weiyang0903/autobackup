@@ -2,7 +2,11 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { getDbConfig } from "./db";
-import { resolveAndValidateBackupDir, isValidDatabaseName } from "./validation";
+import {
+  resolveAndValidateBackupDir,
+  isValidDatabaseName,
+  validateSourceFolder,
+} from "./validation";
 import { addHistoryItem } from "./storage";
 import { BackupHistoryItem, BackupTriggerType } from "@/types";
 
@@ -45,6 +49,32 @@ function sanitizeFolderName(name: string): string {
 }
 
 /**
+ * 递归计算目录或文件的总字节数
+ */
+function getDirectorySizeBytes(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  const stat = fs.statSync(dirPath);
+  if (!stat.isDirectory()) return stat.size;
+
+  let total = 0;
+  const files = fs.readdirSync(dirPath);
+  for (const file of files) {
+    const full = path.join(dirPath, file);
+    try {
+      const s = fs.statSync(full);
+      if (s.isDirectory()) {
+        total += getDirectorySizeBytes(full);
+      } else {
+        total += s.size;
+      }
+    } catch {
+      // 忽略单个被锁定文件的统计错误
+    }
+  }
+  return total;
+}
+
+/**
  * 生成唯一 ID
  */
 function generateId(): string {
@@ -52,47 +82,72 @@ function generateId(): string {
 }
 
 /**
- * 执行单个或多个数据库导出
+ * 执行单个或多个数据库导出以及源文件夹递归复制备份
  */
 export async function executeBackup(options: {
-  databases: string[];
+  databases?: string[];
+  sourceFolders?: string[];
   customBackupDir?: string;
   triggerType: BackupTriggerType;
   scheduleName?: string | null;
   scheduleId?: string | null;
 }): Promise<BackupHistoryItem> {
-  const { databases, customBackupDir, triggerType, scheduleName, scheduleId } =
-    options;
+  const {
+    databases = [],
+    sourceFolders = [],
+    customBackupDir,
+    triggerType,
+    scheduleName,
+    scheduleId,
+  } = options;
   const startTime = Date.now();
   const nowDate = new Date();
 
-  // 1. 基础校验
-  if (!databases || databases.length === 0) {
-    throw new Error("No database selected for backup");
+  const hasDatabases = databases && databases.length > 0;
+  const hasFolders = sourceFolders && sourceFolders.length > 0;
+
+  // 1. 基础校验：必须至少有数据库或文件夹之一
+  if (!hasDatabases && !hasFolders) {
+    throw new Error(
+      "No database or source folder selected for backup. Please select at least one."
+    );
   }
 
-  for (const dbName of databases) {
-    if (!isValidDatabaseName(dbName)) {
-      throw new Error(`Invalid database name: ${dbName}`);
+  if (hasDatabases) {
+    for (const dbName of databases) {
+      if (!isValidDatabaseName(dbName)) {
+        throw new Error(`Invalid database name: ${dbName}`);
+      }
     }
   }
 
   // 2. 根目录校验与解析
   const targetRoot =
     customBackupDir || process.env.DEFAULT_BACKUP_DIR || "./backups";
-  const validation = resolveAndValidateBackupDir(targetRoot);
-  if (!validation.isValid) {
-    throw new Error(validation.error || "Invalid backup directory");
+  const rootValidation = resolveAndValidateBackupDir(targetRoot);
+  if (!rootValidation.isValid) {
+    throw new Error(rootValidation.error || "Invalid backup destination directory");
   }
-  const resolvedRootDir = validation.resolvedPath;
+  const resolvedRootDir = rootValidation.resolvedPath;
 
-  // 3. 根据触发模式构建多层级子目录
+  // 3. 校验所有源文件夹
+  const validSourceFolders: string[] = [];
+  if (hasFolders) {
+    for (const folder of sourceFolders) {
+      const fv = validateSourceFolder(folder, resolvedRootDir);
+      if (!fv.isValid) {
+        throw new Error(fv.error || `Invalid source folder: ${folder}`);
+      }
+      validSourceFolders.push(fv.resolvedPath);
+    }
+  }
+
+  // 4. 根据触发模式构建多层级子目录
   const dateFolder = getDateFolderString(nowDate);
   let targetSubDir = "";
   let relativeDirPrefix = "";
 
   if (triggerType === "manual") {
-    // 模式一：手动即时导出 -> Immediate_Manual_Export / YYYY-MM-DD
     targetSubDir = path.join(
       resolvedRootDir,
       "Immediate_Manual_Export",
@@ -100,7 +155,6 @@ export async function executeBackup(options: {
     );
     relativeDirPrefix = `Immediate_Manual_Export/${dateFolder}`;
   } else {
-    // 模式二：定时自动调度 -> scheduleName_id / YYYY-MM-DD / HH_mm_ss
     const safeName = sanitizeFolderName(scheduleName || "schedule");
     const safeId = sanitizeFolderName(scheduleId || "unknown");
     const scheduleFolder = `${safeName}_${safeId}`;
@@ -120,8 +174,47 @@ export async function executeBackup(options: {
     fs.mkdirSync(targetSubDir, { recursive: true });
   }
 
-  // 4. 构造输出文件名与路径
+  // 5. 复制源文件夹
+  const copiedFolderNames: string[] = [];
+  if (validSourceFolders.length > 0) {
+    for (const srcPath of validSourceFolders) {
+      const baseName = path.basename(srcPath);
+      const destPath = path.join(targetSubDir, baseName);
+      try {
+        fs.cpSync(srcPath, destPath, { recursive: true, force: true });
+        copiedFolderNames.push(baseName);
+      } catch (copyErr: unknown) {
+        const msg = copyErr instanceof Error ? copyErr.message : String(copyErr);
+        throw new Error(`Failed to copy folder '${baseName}': ${msg}`);
+      }
+    }
+  }
+
+  // 6. 如果没有选择数据库，仅备份了文件夹，直接完成
   const timestampStr = getTimestampString(nowDate);
+  if (!hasDatabases) {
+    const totalSize = getDirectorySizeBytes(targetSubDir);
+    const historyItem: BackupHistoryItem = {
+      id: generateId(),
+      timestamp: nowDate.toISOString(),
+      triggerType,
+      scheduleName,
+      databases: [],
+      sourceFolders: validSourceFolders,
+      filePath: targetSubDir,
+      targetDirectory: targetSubDir,
+      fileName: `${relativeDirPrefix}/[${copiedFolderNames.join(", ")}]`,
+      fileSize: totalSize,
+      durationMs: Date.now() - startTime,
+      status: "SUCCESS",
+      hasFolders: true,
+      errorMessage: null,
+    };
+    addHistoryItem(historyItem);
+    return historyItem;
+  }
+
+  // 7. 导出 MySQL 数据库 (mysqldump)
   const dbPrefix =
     databases.length === 1 ? databases[0] : `multiple_${databases.length}_dbs`;
   const rawFileName = `${dbPrefix}_${timestampStr}.sql`;
@@ -132,7 +225,6 @@ export async function executeBackup(options: {
     `${rawFileName}.${Date.now()}.tmp`
   );
 
-  // 5. 获取连接与 mysqldump 路径配置
   const dbConfig = getDbConfig();
   const mysqldumpPath =
     process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
@@ -145,18 +237,20 @@ export async function executeBackup(options: {
       triggerType,
       scheduleName,
       databases,
+      sourceFolders: validSourceFolders,
       filePath: finalFilePath,
+      targetDirectory: targetSubDir,
       fileName: displayFileName,
       fileSize: 0,
       durationMs: Date.now() - startTime,
       status: "FAILED",
+      hasFolders: validSourceFolders.length > 0,
       errorMessage: errorMsg,
     };
     addHistoryItem(historyItem);
     throw new Error(errorMsg);
   }
 
-  // 6. 组装 mysqldump 参数
   const args: string[] = [
     `--host=${dbConfig.host}`,
     `--port=${dbConfig.port}`,
@@ -175,7 +269,6 @@ export async function executeBackup(options: {
     args.push("--databases", ...databases);
   }
 
-  // 7. 执行子进程并将 stdout 管道写入临时文件
   return new Promise<BackupHistoryItem>((resolve, reject) => {
     const writeStream = fs.createWriteStream(tempFilePath, {
       flags: "w",
@@ -208,11 +301,14 @@ export async function executeBackup(options: {
         triggerType,
         scheduleName,
         databases,
+        sourceFolders: validSourceFolders,
         filePath: finalFilePath,
+        targetDirectory: targetSubDir,
         fileName: displayFileName,
         fileSize: 0,
         durationMs: Date.now() - startTime,
         status: "FAILED",
+        hasFolders: validSourceFolders.length > 0,
         errorMessage: err.message || "Failed to spawn mysqldump process",
       };
       addHistoryItem(historyItem);
@@ -222,11 +318,10 @@ export async function executeBackup(options: {
     child.on("close", (code) => {
       writeStream.close();
 
-      // mysqldump 退出码 0 表示完全成功
       if (code === 0) {
         try {
           fs.renameSync(tempFilePath, finalFilePath);
-          const stats = fs.statSync(finalFilePath);
+          const totalSize = getDirectorySizeBytes(targetSubDir);
 
           const historyItem: BackupHistoryItem = {
             id: generateId(),
@@ -234,11 +329,14 @@ export async function executeBackup(options: {
             triggerType,
             scheduleName,
             databases,
+            sourceFolders: validSourceFolders,
             filePath: finalFilePath,
+            targetDirectory: targetSubDir,
             fileName: displayFileName,
-            fileSize: stats.size,
+            fileSize: totalSize,
             durationMs: Date.now() - startTime,
             status: "SUCCESS",
+            hasFolders: validSourceFolders.length > 0,
             errorMessage: null,
           };
 
@@ -258,18 +356,20 @@ export async function executeBackup(options: {
             triggerType,
             scheduleName,
             databases,
+            sourceFolders: validSourceFolders,
             filePath: finalFilePath,
+            targetDirectory: targetSubDir,
             fileName: displayFileName,
             fileSize: 0,
             durationMs: Date.now() - startTime,
             status: "FAILED",
+            hasFolders: validSourceFolders.length > 0,
             errorMessage: `Failed to finalize file: ${message}`,
           };
           addHistoryItem(historyItem);
           reject(new Error(message));
         }
       } else {
-        // 失败处理与清理
         if (fs.existsSync(tempFilePath)) {
           try {
             fs.unlinkSync(tempFilePath);
@@ -284,11 +384,14 @@ export async function executeBackup(options: {
           triggerType,
           scheduleName,
           databases,
+          sourceFolders: validSourceFolders,
           filePath: finalFilePath,
+          targetDirectory: targetSubDir,
           fileName: displayFileName,
           fileSize: 0,
           durationMs: Date.now() - startTime,
           status: "FAILED",
+          hasFolders: validSourceFolders.length > 0,
           errorMessage: errorMsg,
         };
         addHistoryItem(historyItem);

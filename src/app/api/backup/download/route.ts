@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const archiver = require("archiver");
 import { getHistory } from "@/lib/storage";
 
 export async function GET(req: NextRequest) {
@@ -19,27 +21,63 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Backup record not found", { status: 404 });
     }
 
-    const filePath = targetItem.filePath;
+    // 确定本次备份所在的物理目录
+    const targetDir =
+      targetItem.targetDirectory ||
+      (fs.existsSync(targetItem.filePath) &&
+      fs.statSync(targetItem.filePath).isDirectory()
+        ? targetItem.filePath
+        : path.dirname(targetItem.filePath));
 
-    if (!fs.existsSync(filePath)) {
-      return new NextResponse("Backup file does not exist on disk", {
+    if (!fs.existsSync(targetDir)) {
+      return new NextResponse("Backup directory does not exist on disk", {
         status: 404,
       });
     }
 
-    const stat = fs.statSync(filePath);
-    const fileBuffer = fs.readFileSync(filePath);
-    // 确保下载弹窗展示纯文件名（如 db_2026-09-09_120000.sql）
-    const pureFileName = path.basename(filePath);
+    // 构造 ZIP 下载文件名
+    const safeBaseName = (
+      targetItem.scheduleName ||
+      targetItem.databases[0] ||
+      "backup"
+    ).replace(/[/\\?%*:|"<> ]/g, "_");
 
-    return new NextResponse(fileBuffer, {
+    const zipFileName = `${safeBaseName}_backup_${targetItem.id}.zip`;
+
+    // 创建 archiver 压缩实例
+    const archive = archiver("zip", {
+      zlib: { level: 6 },
+    });
+
+    // 创建 Web ReadableStream 将 node-stream 桥接给 Next.js Response
+    const stream = new ReadableStream({
+      start(controller) {
+        archive.on("data", (chunk: Uint8Array) => {
+          controller.enqueue(chunk);
+        });
+
+        archive.on("end", () => {
+          controller.close();
+        });
+
+        archive.on("error", (err: Error) => {
+          controller.error(err);
+        });
+
+        // 将目标目录内的所有文件与子文件夹加入压缩包根目录
+        archive.directory(targetDir, false);
+        archive.finalize();
+      },
+    });
+
+    return new NextResponse(stream, {
       status: 200,
       headers: {
-        "Content-Type": "application/sql",
-        "Content-Length": stat.size.toString(),
+        "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${encodeURIComponent(
-          pureFileName
+          zipFileName
         )}"`,
+        "Transfer-Encoding": "chunked",
       },
     });
   } catch (err: unknown) {

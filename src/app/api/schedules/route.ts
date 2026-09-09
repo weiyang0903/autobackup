@@ -6,7 +6,11 @@ import {
   compileScheduleToCrons,
   validateCronExpression,
 } from "@/lib/scheduler";
-import { resolveAndValidateBackupDir, isValidDatabaseName } from "@/lib/validation";
+import {
+  resolveAndValidateBackupDir,
+  isValidDatabaseName,
+  validateSourceFolder,
+} from "@/lib/validation";
 import { ScheduleItem, ScheduleFrequencyType } from "@/types";
 
 // 获取所有定时调度规则
@@ -27,7 +31,16 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, databases, frequencyType, weekDays, times, backupDir, enabled } = body;
+    const {
+      name,
+      databases = [],
+      sourceFolders = [],
+      frequencyType,
+      weekDays,
+      times,
+      backupDir,
+      enabled,
+    } = body;
 
     // 1. 校验规则名
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -37,35 +50,72 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. 校验数据库列表
-    if (!databases || !Array.isArray(databases) || databases.length === 0) {
+    // 2. 校验必须至少选择数据库或源文件夹之一
+    const hasDatabases = Array.isArray(databases) && databases.length > 0;
+    const hasFolders = Array.isArray(sourceFolders) && sourceFolders.length > 0;
+
+    if (!hasDatabases && !hasFolders) {
       return NextResponse.json(
-        { success: false, error: "Please select at least one database" },
+        {
+          success: false,
+          error: "Please select at least one database or one source folder to back up.",
+        },
         { status: 400 }
       );
     }
 
-    for (const db of databases) {
-      if (!isValidDatabaseName(db)) {
-        return NextResponse.json(
-          { success: false, error: `Invalid database name: ${db}` },
-          { status: 400 }
-        );
+    if (hasDatabases) {
+      for (const db of databases) {
+        if (!isValidDatabaseName(db)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid database name: ${db}` },
+            { status: 400 }
+          );
+        }
       }
     }
 
-    // 3. 校验频率类型
+    // 3. 校验保存路径
+    const targetDir =
+      backupDir || process.env.DEFAULT_BACKUP_DIR || "./backups";
+    const dirValidation = resolveAndValidateBackupDir(targetDir);
+    if (!dirValidation.isValid) {
+      return NextResponse.json(
+        { success: false, error: dirValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // 4. 校验源文件夹列表
+    const validSourceFolders: string[] = [];
+    if (hasFolders) {
+      for (const folder of sourceFolders) {
+        const fv = validateSourceFolder(folder, dirValidation.resolvedPath);
+        if (!fv.isValid) {
+          return NextResponse.json(
+            { success: false, error: fv.error },
+            { status: 400 }
+          );
+        }
+        validSourceFolders.push(fv.resolvedPath);
+      }
+    }
+
+    // 5. 校验频率类型
     const validFreqs: ScheduleFrequencyType[] = ["hourly", "daily", "weekly"];
     const targetFreq: ScheduleFrequencyType = validFreqs.includes(frequencyType)
       ? frequencyType
       : "hourly";
 
-    // 4. 针对 daily 与 weekly 的时间校验
+    // 6. 针对 daily 与 weekly 的时间校验
     let targetTimes: string[] = ["00:00"];
     if (targetFreq === "daily" || targetFreq === "weekly") {
       if (!times || !Array.isArray(times) || times.length === 0) {
         return NextResponse.json(
-          { success: false, error: "Please provide at least one backup time (HH:mm)" },
+          {
+            success: false,
+            error: "Please provide at least one backup time (HH:mm)",
+          },
           { status: 400 }
         );
       }
@@ -81,12 +131,16 @@ export async function POST(req: NextRequest) {
       targetTimes = Array.from(new Set(times));
     }
 
-    // 5. 针对 weekly 的星期校验
+    // 7. 针对 weekly 的星期校验
     let targetWeekDays: number[] = [0];
     if (targetFreq === "weekly") {
       if (!weekDays || !Array.isArray(weekDays) || weekDays.length === 0) {
         return NextResponse.json(
-          { success: false, error: "Please select at least one day of the week for weekly backup" },
+          {
+            success: false,
+            error:
+              "Please select at least one day of the week for weekly backup",
+          },
           { status: 400 }
         );
       }
@@ -102,7 +156,7 @@ export async function POST(req: NextRequest) {
       targetWeekDays = Array.from(new Set(weekDays)).sort((a, b) => a - b);
     }
 
-    // 6. 服务端编译生成 Cron 表达式列表
+    // 8. 服务端编译生成 Cron 表达式列表
     const cronExpressions = compileScheduleToCrons({
       frequencyType: targetFreq,
       weekDays: targetFreq === "weekly" ? targetWeekDays : undefined,
@@ -112,27 +166,24 @@ export async function POST(req: NextRequest) {
     for (const expr of cronExpressions) {
       if (!validateCronExpression(expr)) {
         return NextResponse.json(
-          { success: false, error: `Compiled cron expression is invalid: ${expr}` },
+          {
+            success: false,
+            error: `Compiled cron expression is invalid: ${expr}`,
+          },
           { status: 400 }
         );
       }
     }
 
-    // 7. 校验保存路径
-    const targetDir =
-      backupDir || process.env.DEFAULT_BACKUP_DIR || "./backups";
-    const dirValidation = resolveAndValidateBackupDir(targetDir);
-    if (!dirValidation.isValid) {
-      return NextResponse.json(
-        { success: false, error: dirValidation.error },
-        { status: 400 }
-      );
-    }
-
     const newSchedule: ScheduleItem = {
-      id: "sched_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+      id:
+        "sched_" +
+        Date.now() +
+        "_" +
+        Math.random().toString(36).substring(2, 7),
       name: name.trim(),
-      databases,
+      databases: databases || [],
+      sourceFolders: validSourceFolders.length > 0 ? validSourceFolders : undefined,
       frequencyType: targetFreq,
       weekDays: targetFreq === "weekly" ? targetWeekDays : undefined,
       times: targetFreq !== "hourly" ? targetTimes : undefined,
@@ -165,7 +216,17 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, enabled, name, databases, frequencyType, weekDays, times, backupDir } = body;
+    const {
+      id,
+      enabled,
+      name,
+      databases,
+      sourceFolders,
+      frequencyType,
+      weekDays,
+      times,
+      backupDir,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -187,7 +248,8 @@ export async function PUT(req: NextRequest) {
     const current = list[targetIndex];
 
     if (name) current.name = name.trim();
-    if (Array.isArray(databases) && databases.length > 0) current.databases = databases;
+    if (Array.isArray(databases)) current.databases = databases;
+    if (Array.isArray(sourceFolders)) current.sourceFolders = sourceFolders;
 
     if (frequencyType) {
       current.frequencyType = frequencyType;

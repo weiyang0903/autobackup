@@ -10,6 +10,8 @@ import {
   FileCode,
   Sparkles,
   Clock,
+  Folder,
+  Archive,
 } from "lucide-react";
 import { BackupHistoryItem } from "@/types";
 
@@ -42,7 +44,7 @@ export function BackupHistoryTable({
 
   const handleDelete = async (id: string, fileName: string) => {
     const deletePhysical = window.confirm(
-      `Delete backup record '${fileName}'?\n\nClick OK to delete record and the actual .sql file from disk.`
+      `Delete backup record '${fileName}'?\n\nClick OK to delete record and the actual backup files/directories from disk.`
     );
     if (!deletePhysical) return;
 
@@ -70,13 +72,15 @@ export function BackupHistoryTable({
             Backup History & Files
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Audit trail of exported SQL files with instant download and verification
+            Audit trail of exported SQL and replicated folder backups with instant ZIP download
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-xs text-slate-400">Loading history records...</div>
+        <div className="py-12 text-center text-xs text-slate-400">
+          Loading history records...
+        </div>
       ) : history.length === 0 ? (
         <div className="py-12 text-center text-slate-500 text-xs bg-slate-50 rounded-lg border border-dashed border-slate-200">
           No backup history records yet. Perform a manual export or set up a schedule.
@@ -88,9 +92,9 @@ export function BackupHistoryTable({
               <tr>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Trigger</th>
-                <th className="py-3 px-4">Target Databases</th>
-                <th className="py-3 px-4">File Name & Path</th>
-                <th className="py-3 px-4">Size</th>
+                <th className="py-3 px-4">Targets (DBs & Folders)</th>
+                <th className="py-3 px-4">Relative Path</th>
+                <th className="py-3 px-4">Total Size</th>
                 <th className="py-3 px-4">Duration</th>
                 <th className="py-3 px-4">Timestamp</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -98,7 +102,10 @@ export function BackupHistoryTable({
             </thead>
             <tbody className="divide-y divide-slate-200">
               {history.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                <tr
+                  key={item.id}
+                  className="hover:bg-slate-50/80 transition-colors"
+                >
                   {/* Status */}
                   <td className="py-3 px-4 whitespace-nowrap">
                     {item.status === "SUCCESS" ? (
@@ -132,24 +139,41 @@ export function BackupHistoryTable({
                     )}
                   </td>
 
-                  {/* Databases */}
+                  {/* Targets (Databases & Folders) */}
                   <td className="py-3 px-4">
-                    <div className="font-medium text-slate-900 max-w-xs truncate">
-                      {item.databases.join(", ")}
+                    <div className="space-y-0.5 max-w-xs">
+                      {item.databases && item.databases.length > 0 && (
+                        <div className="font-medium text-slate-900 truncate">
+                          {item.databases.join(", ")}
+                        </div>
+                      )}
+                      {item.sourceFolders && item.sourceFolders.length > 0 && (
+                        <div className="flex items-center gap-1 text-slate-500 text-[11px] truncate">
+                          <Folder className="w-3 h-3 text-purple-600 shrink-0" />
+                          <span>
+                            {item.sourceFolders
+                              .map((f) => f.split(/[\\/]/).pop())
+                              .join(", ")}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </td>
 
-                  {/* File Path */}
+                  {/* File / Directory Path */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-1.5 max-w-sm">
                       <FileCode className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="font-mono text-slate-700 truncate" title={item.filePath}>
+                      <span
+                        className="font-mono text-slate-700 truncate"
+                        title={item.filePath}
+                      >
                         {item.fileName}
                       </span>
                       <button
                         onClick={() => handleCopyPath(item.id, item.filePath)}
                         className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded shrink-0 transition-colors"
-                        title="Copy full file path"
+                        title="Copy full physical path"
                       >
                         {copiedId === item.id ? (
                           <Check className="w-3 h-3 text-emerald-600" />
@@ -181,19 +205,18 @@ export function BackupHistoryTable({
                       {item.status === "SUCCESS" && (
                         <a
                           href={`/api/backup/download?id=${item.id}`}
-                          download={item.fileName}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-medium transition-colors text-[11px]"
-                          title="Download SQL File"
+                          title="Download Complete Backup ZIP"
                         >
-                          <Download className="w-3 h-3" />
-                          <span>Download</span>
+                          <Archive className="w-3 h-3" />
+                          <span>Download ZIP</span>
                         </a>
                       )}
 
                       <button
                         onClick={() => handleDelete(item.id, item.fileName)}
                         className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-md transition-colors"
-                        title="Delete record & file"
+                        title="Delete record & files"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

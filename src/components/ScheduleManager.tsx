@@ -8,7 +8,8 @@ import {
   Calendar,
   X,
   Sparkles,
-  Check,
+  FolderPlus,
+  Folder,
 } from "lucide-react";
 import { ScheduleItem, ScheduleFrequencyType } from "@/types";
 
@@ -68,6 +69,8 @@ export function ScheduleManager({
   // 表单状态
   const [name, setName] = useState("");
   const [selectedDbs, setSelectedDbs] = useState<string[]>([]);
+  const [sourceFolders, setSourceFolders] = useState<string[]>([]);
+  const [folderInput, setFolderInput] = useState("");
   const [frequencyType, setFrequencyType] =
     useState<ScheduleFrequencyType>("hourly");
 
@@ -101,6 +104,24 @@ export function ScheduleManager({
   useEffect(() => {
     fetchSchedules();
   }, []);
+
+  // 添加源文件夹
+  const handleAddFolder = () => {
+    const trimmed = folderInput.trim();
+    if (!trimmed) return;
+    if (sourceFolders.includes(trimmed)) {
+      setFormError(`Folder path "${trimmed}" is already added.`);
+      return;
+    }
+    setFormError(null);
+    setSourceFolders([...sourceFolders, trimmed]);
+    setFolderInput("");
+  };
+
+  // 移除源文件夹
+  const handleRemoveFolder = (folderToRemove: string) => {
+    setSourceFolders(sourceFolders.filter((f) => f !== folderToRemove));
+  };
 
   // 添加时间点
   const handleAddTime = () => {
@@ -148,8 +169,8 @@ export function ScheduleManager({
       return;
     }
 
-    if (selectedDbs.length === 0) {
-      setFormError("Please select at least one database to back up");
+    if (selectedDbs.length === 0 && sourceFolders.length === 0) {
+      setFormError("Please select at least one database OR add at least one folder to back up");
       return;
     }
 
@@ -174,6 +195,7 @@ export function ScheduleManager({
         body: JSON.stringify({
           name: name.trim(),
           databases: selectedDbs,
+          sourceFolders: sourceFolders.length > 0 ? sourceFolders : undefined,
           frequencyType,
           times: frequencyType !== "hourly" ? timesList : undefined,
           weekDays: frequencyType === "weekly" ? selectedWeekDays : undefined,
@@ -187,6 +209,8 @@ export function ScheduleManager({
         setIsCreating(false);
         setName("");
         setSelectedDbs([]);
+        setSourceFolders([]);
+        setFolderInput("");
         setFrequencyType("hourly");
         setTimesList(["09:00"]);
         setSelectedWeekDays([1]);
@@ -249,10 +273,10 @@ export function ScheduleManager({
         <div>
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
             <Clock className="w-4 h-4 text-purple-600" />
-            Automated Schedules
+            Automated Schedules (Databases & Folders)
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure periodic background tasks to export MySQL databases automatically
+            Configure periodic background tasks to export MySQL databases and replicate directories automatically
           </p>
         </div>
 
@@ -301,7 +325,7 @@ export function ScheduleManager({
             </label>
             <input
               type="text"
-              placeholder="e.g. Daily Production Backup"
+              placeholder="e.g. Daily Project DB & Uploads Backup"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -311,7 +335,7 @@ export function ScheduleManager({
           {/* Databases Selection */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
-              Databases to Include *
+              Databases to Include (Optional if folders are selected)
             </label>
             <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-white border border-slate-200 rounded-lg">
               {availableDatabases.map((db) => {
@@ -338,6 +362,57 @@ export function ScheduleManager({
                 );
               })}
             </div>
+          </div>
+
+          {/* Source Folders Backup Selection */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+              <FolderPlus className="w-3.5 h-3.5 text-purple-600" />
+              Source Folders to Backup (One or multiple directories)
+            </label>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="e.g. C:\xampp\htdocs\my_project\uploads or ./storage"
+                value={folderInput}
+                onChange={(e) => setFolderInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddFolder();
+                  }
+                }}
+                className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleAddFolder}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors shrink-0"
+              >
+                + Add Folder
+              </button>
+            </div>
+
+            {sourceFolders.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-slate-200 rounded-lg max-h-28 overflow-y-auto">
+                {sourceFolders.map((f) => (
+                  <span
+                    key={f}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-800 font-mono"
+                  >
+                    <Folder className="w-3 h-3 text-purple-600 shrink-0" />
+                    <span className="truncate max-w-xs">{f}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFolder(f)}
+                      className="text-slate-400 hover:text-red-600 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Frequency Type Selector (Every Hour / Daily / Weekly) */}
@@ -415,7 +490,7 @@ export function ScheduleManager({
             </div>
           )}
 
-          {/* Sub-panel 2 & 3: Weekly Days Selector */}
+          {/* Sub-panel 2: Weekly Days Selector */}
           {frequencyType === "weekly" && (
             <div className="bg-white p-3.5 border border-slate-200 rounded-lg space-y-2">
               <label className="block text-xs font-medium text-slate-700">
@@ -443,14 +518,13 @@ export function ScheduleManager({
             </div>
           )}
 
-          {/* Sub-panel: Multi-Time Picker (For Daily & Weekly) */}
+          {/* Sub-panel 3: Multi-Time Picker (For Daily & Weekly) */}
           {(frequencyType === "daily" || frequencyType === "weekly") && (
             <div className="bg-white p-3.5 border border-slate-200 rounded-lg space-y-2.5">
               <label className="block text-xs font-medium text-slate-700">
                 Backup Times (Add one or multiple times) *
               </label>
 
-              {/* Time Input & Add Button */}
               <div className="flex items-center gap-2">
                 <input
                   type="time"
@@ -468,7 +542,6 @@ export function ScheduleManager({
                 </button>
               </div>
 
-              {/* Added Times Tags */}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {timesList.map((time) => (
                   <span
@@ -560,13 +633,26 @@ export function ScheduleManager({
                     <Clock className="w-3 h-3 text-purple-500" />
                     {formatScheduleSummary(item)}
                   </span>
-                  <span>•</span>
-                  <span>
-                    Databases:{" "}
-                    <strong className="text-slate-700 font-medium">
-                      {item.databases.join(", ")}
-                    </strong>
-                  </span>
+                  {item.databases && item.databases.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>
+                        DBs:{" "}
+                        <strong className="text-slate-700 font-medium">
+                          {item.databases.join(", ")}
+                        </strong>
+                      </span>
+                    </>
+                  )}
+                  {item.sourceFolders && item.sourceFolders.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-slate-700 font-medium">
+                        <Folder className="w-3 h-3 text-purple-600" />
+                        Folders: {item.sourceFolders.map((f) => f.split(/[\\/]/).pop()).join(", ")}
+                      </span>
+                    </>
+                  )}
                   {item.lastRun && (
                     <>
                       <span>•</span>

@@ -16,7 +16,7 @@ export async function GET() {
   }
 }
 
-// 删除备份历史（并根据参数决定是否清理物理文件）
+// 删除备份历史（并根据参数决定是否清理物理文件或目录）
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -39,9 +39,17 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // 若要求删除物理磁盘文件
-    if (deletePhysicalFile && removed.filePath) {
-      if (fs.existsSync(removed.filePath)) {
+    // 若要求删除物理磁盘文件/目录
+    if (deletePhysicalFile) {
+      // 1. 若有独立运行目标目录，递归清理该时间目录
+      if (removed.targetDirectory && fs.existsSync(removed.targetDirectory)) {
+        try {
+          fs.rmSync(removed.targetDirectory, { recursive: true, force: true });
+        } catch (dirErr) {
+          console.error(`Failed to delete target directory ${removed.targetDirectory}:`, dirErr);
+        }
+      } else if (removed.filePath && fs.existsSync(removed.filePath)) {
+        // 2. 否则单独删除主文件
         try {
           fs.unlinkSync(removed.filePath);
         } catch (fileErr) {

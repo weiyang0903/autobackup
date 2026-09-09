@@ -23,11 +23,14 @@ export interface BackupHistoryItem {
   triggerType: BackupTriggerType;
   scheduleName?: string | null;
   databases: string[];
-  filePath: string;
-  fileName: string;
-  fileSize: number; // 字节数
+  sourceFolders?: string[]; // 备份的源文件夹列表
+  filePath: string; // 主备份文件路径或所在目录绝对路径
+  targetDirectory?: string; // 本次备份文件与复制文件夹所在的完整目录
+  fileName: string; // 展示用的相对路径
+  fileSize: number; // 字节数 (包含SQL与文件夹总大小)
   durationMs: number; // 执行耗时毫秒
   status: BackupStatus;
+  hasFolders?: boolean; // 是否包含复制的文件夹
   errorMessage?: string | null;
 }
 
@@ -39,6 +42,7 @@ export interface ScheduleItem {
   id: string;
   name: string;
   databases: string[];
+  sourceFolders?: string[]; // 需要一并备份的源文件夹路径列表
   // 可视化调度配置
   frequencyType: ScheduleFrequencyType;
   weekDays?: number[]; // 0=周日, 1=周一, 2=周二, 3=周三, 4=周四, 5=周五, 6=周六
@@ -76,5 +80,6 @@ export interface SystemStatus {
 // 手动备份请求载荷
 export interface ManualBackupRequest {
   databases: string[];
+  sourceFolders?: string[];
   customBackupDir?: string;
 }

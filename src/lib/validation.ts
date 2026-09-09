@@ -7,7 +7,6 @@ import path from "path";
  */
 export function isValidDatabaseName(name: string): boolean {
   if (!name || typeof name !== "string") return false;
-  // 仅允许标准数据库标识符
   return /^[a-zA-Z0-9_\-$]+$/.test(name);
 }
 
@@ -47,6 +46,72 @@ export function resolveAndValidateBackupDir(dirPath: string): {
       isValid: false,
       resolvedPath: resolved,
       error: `Directory is not accessible or writable: ${message}`,
+    };
+  }
+}
+
+/**
+ * 校验源备份文件夹路径的合法性
+ * 必须存在、必须是目录、必须有读取权限，且不能是备份目标目录本身或其父目录（防自包含死循环）
+ */
+export function validateSourceFolder(
+  folderPath: string,
+  backupRootDir: string
+): {
+  isValid: boolean;
+  resolvedPath: string;
+  error?: string;
+} {
+  if (!folderPath || typeof folderPath !== "string" || folderPath.trim() === "") {
+    return { isValid: false, resolvedPath: "", error: "Folder path cannot be empty" };
+  }
+
+  const resolvedSource = path.isAbsolute(folderPath.trim())
+    ? path.resolve(folderPath.trim())
+    : path.resolve(process.cwd(), folderPath.trim());
+
+  const resolvedBackupRoot = path.isAbsolute(backupRootDir)
+    ? path.resolve(backupRootDir)
+    : path.resolve(process.cwd(), backupRootDir);
+
+  try {
+    if (!fs.existsSync(resolvedSource)) {
+      return {
+        isValid: false,
+        resolvedPath: resolvedSource,
+        error: `Source folder does not exist: ${resolvedSource}`,
+      };
+    }
+
+    const stat = fs.statSync(resolvedSource);
+    if (!stat.isDirectory()) {
+      return {
+        isValid: false,
+        resolvedPath: resolvedSource,
+        error: `Source path is a file, not a directory: ${resolvedSource}`,
+      };
+    }
+
+    // 校验读取权限
+    fs.accessSync(resolvedSource, fs.constants.R_OK);
+
+    // 防死循环嵌套：源目录不能是备份目标根目录自身或包含备份根目录
+    const relativeToBackup = path.relative(resolvedSource, resolvedBackupRoot);
+    if (relativeToBackup === "" || (!relativeToBackup.startsWith("..") && !path.isAbsolute(relativeToBackup))) {
+      return {
+        isValid: false,
+        resolvedPath: resolvedSource,
+        error: `Cannot backup the backup destination directory itself (recursion detected): ${resolvedSource}`,
+      };
+    }
+
+    return { isValid: true, resolvedPath: resolvedSource };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      isValid: false,
+      resolvedPath: resolvedSource,
+      error: `Cannot access source folder: ${message}`,
     };
   }
 }

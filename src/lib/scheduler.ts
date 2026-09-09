@@ -24,18 +24,15 @@ export function compileScheduleToCrons(config: {
   const { frequencyType, weekDays, times } = config;
 
   if (frequencyType === "hourly") {
-    // 每小时整点 (:00)
     return ["0 * * * *"];
   }
 
-  // 整理有效时间列表 (默认 "00:00")
   const validTimes =
     times && times.length > 0 ? Array.from(new Set(times)) : ["00:00"];
 
   const results: string[] = [];
 
   for (const timeStr of validTimes) {
-    // 匹配 HH:mm 格式
     const match = timeStr.match(/^(\d{1,2}):(\d{1,2})$/);
     if (!match) continue;
 
@@ -45,14 +42,12 @@ export function compileScheduleToCrons(config: {
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) continue;
 
     if (frequencyType === "daily") {
-      // 每天具体时间：minute hour * * *
       results.push(`${minute} ${hour} * * *`);
     } else if (frequencyType === "weekly") {
-      // 每周特定天与具体时间：minute hour * * day_list
       const days =
         weekDays && weekDays.length > 0
           ? Array.from(new Set(weekDays)).sort((a, b) => a - b).join(",")
-          : "0"; // 默认周日
+          : "0";
       results.push(`${minute} ${hour} * * ${days}`);
     }
   }
@@ -61,10 +56,9 @@ export function compileScheduleToCrons(config: {
 }
 
 /**
- * 为单个规则注册定时任务（支持多条 Cron）
+ * 为单个规则注册定时任务（支持多条 Cron 与文件夹备份）
  */
 function registerCronTask(schedule: ScheduleItem): void {
-  // 若已存在则先停止全部关联的任务
   if (activeTasks.has(schedule.id)) {
     const existingList = activeTasks.get(schedule.id) || [];
     existingList.forEach((t) => t.stop());
@@ -75,7 +69,6 @@ function registerCronTask(schedule: ScheduleItem): void {
     return;
   }
 
-  // 获取该调度名下的全部 Cron 表达式
   const expressions =
     schedule.cronExpressions && schedule.cronExpressions.length > 0
       ? schedule.cronExpressions
@@ -110,6 +103,7 @@ function registerCronTask(schedule: ScheduleItem): void {
           try {
             await executeBackup({
               databases: schedule.databases,
+              sourceFolders: schedule.sourceFolders,
               customBackupDir: schedule.backupDir,
               triggerType: "scheduled",
               scheduleName: schedule.name,
