@@ -1,0 +1,12 @@
+[
+  {
+    "id": "sched_example_1",
+    "name": "Daily Midnight Backup",
+    "databases": ["my_project_db"],
+    "cronExpression": "0 0 * * *",
+    "backupDir": "./backups",
+    "enabled": true,
+    "createdAt": "2026-09-09T00:00:00.000Z",
+    "lastRun": null
+  }
+]

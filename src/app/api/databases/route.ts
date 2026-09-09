@@ -1,0 +1,18 @@
+import { NextRequest, NextResponse } from "next/server";
+import { listDatabases } from "@/lib/db";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const includeSystem = searchParams.get("includeSystem") === "true";
+
+    const databases = await listDatabases(includeSystem);
+    return NextResponse.json({ success: true, databases });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 500 }
+    );
+  }
+}

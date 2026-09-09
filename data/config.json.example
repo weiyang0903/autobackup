@@ -1,0 +1,5 @@
+{
+  "defaultBackupDir": "./backups",
+  "compressionEnabled": false,
+  "keepDays": 30
+}
