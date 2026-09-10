@@ -62,8 +62,16 @@ export async function GET(req: NextRequest) {
       zlib: { level: 6 },
     });
 
-    // 1. 若存在本次备份的 SQL 文件，精确添加该文件
-    if (
+    // 1. 若存在本次备份生成的 SQL 文件列表，精确添加每一个独立的 .sql 文件
+    if (Array.isArray(targetItem.filePaths) && targetItem.filePaths.length > 0) {
+      for (const sqlPath of targetItem.filePaths) {
+        if (fs.existsSync(sqlPath) && fs.statSync(sqlPath).isFile()) {
+          const sqlFileName = path.basename(sqlPath);
+          archive.file(sqlPath, { name: sqlFileName });
+          hasEntries = true;
+        }
+      }
+    } else if (
       targetItem.filePath &&
       fs.existsSync(targetItem.filePath) &&
       fs.statSync(targetItem.filePath).isFile()

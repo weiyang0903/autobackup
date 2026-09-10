@@ -25,6 +25,7 @@ export interface BackupHistoryItem {
   databases: string[];
   sourceFolders?: string[]; // 备份的源文件夹列表
   filePath: string; // 主备份文件路径或所在目录绝对路径
+  filePaths?: string[]; // 包含所有生成的独立 SQL 文件路径列表
   targetDirectory?: string; // 本次备份文件与复制文件夹所在的完整目录
   fileName: string; // 展示用的相对路径
   fileSize: number; // 字节数 (包含SQL与文件夹总大小)

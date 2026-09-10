@@ -78,8 +78,18 @@ export async function DELETE(req: NextRequest) {
       let parentDirToClean = "";
 
       if (removed.triggerType === "manual") {
-        // 1. 手动导出：仅删除属于该记录的 SQL 主文件及复制的专属文件夹，不误删同日期目录下的其他手动备份
-        if (removed.filePath && fs.existsSync(removed.filePath)) {
+        // 1. 手动导出：仅删除属于该记录的 SQL 文件列表及复制的专属文件夹，不误删同日期目录下的其他手动备份
+        if (Array.isArray(removed.filePaths) && removed.filePaths.length > 0) {
+          for (const sqlPath of removed.filePaths) {
+            if (fs.existsSync(sqlPath)) {
+              try {
+                fs.unlinkSync(sqlPath);
+              } catch (fileErr) {
+                console.error(`Failed to delete SQL file ${sqlPath}:`, fileErr);
+              }
+            }
+          }
+        } else if (removed.filePath && fs.existsSync(removed.filePath)) {
           try {
             fs.unlinkSync(removed.filePath);
           } catch (fileErr) {

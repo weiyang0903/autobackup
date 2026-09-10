@@ -53,9 +53,10 @@ sequenceDiagram
    - 最终完整路径：`backups/Immediate_Manual_Export/2026-09-09/{db}_{YYYY-MM-DD_HHmmss}.sql`。
 2. **智能追加**：
    - 若当天该日期目录已存在，系统直接将新的手动备份文件存入其中，不重复创建或报错。
-3. **文件命名格式**：
-   - 单库导出：`{databaseName}_{YYYY-MM-DD_HHmmss}.sql`（例如 `shop_db_2026-09-09_153000.sql`）；
-   - 多库批量导出：`multiple_{count}_dbs_{YYYY-MM-DD_HHmmss}.sql`。
+3. **文件命名格式与多库独立拆分机制**：
+   - **单库导出**：`{databaseName}_{YYYY-MM-DD_HHmmss}.sql`（例如 `shop_db_2026-09-10_153000.sql`）；
+   - **多库批量导出**：系统依次为每一个选中的数据库独立执行导出，在当前日期目录下分别生成各自专属的 `.sql` 文件（例如 `db1_2026-09-10_153000.sql` 和 `db2_2026-09-10_153000.sql`），彻底杜绝多数据库混杂在单文件内；
+   - **ZIP 打包下载**：点击下载时，同一个 ZIP 压缩包内将并列包含各个独立的 `.sql` 脚本文件。
 4. **`mysqldump` 参数组合**：
    - `--routines`：导出存储过程和自定义函数；
    - `--triggers`：导出数据表关联的触发器；

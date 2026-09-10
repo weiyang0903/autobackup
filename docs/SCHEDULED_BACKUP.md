@@ -59,9 +59,9 @@ flowchart TD
     
     H --> I{到达设定触发时间}
     I --> J[构建 scheduleName_id / YYYY-MM-DD / HH_mm_ss 深度路径]
-    J --> K1[调用 mysqldump 导出 SQL 到该子目录]
+    J --> K1[循环为各数据库独立调用 mysqldump 生成各自独立的 .sql 文件]
     J --> K2[调用 fs.cpSync 递归复制源文件夹到该子目录]
-    K1 & K2 --> L[统计总体积 & 写入 data/history.json 审计日志]
+    K1 & K2 --> L[统计 SQL 与文件夹总体积 & 写入 data/history.json 审计日志]
 ```
 
 ---

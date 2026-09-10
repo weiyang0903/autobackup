@@ -214,42 +214,23 @@ export async function executeBackup(options: {
     return historyItem;
   }
 
-  // 7. 导出 MySQL 数据库 (mysqldump)
-  const dbPrefix =
-    databases.length === 1 ? databases[0] : `multiple_${databases.length}_dbs`;
-  const rawFileName = `${dbPrefix}_${timestampStr}.sql`;
-  const displayFileName = `${relativeDirPrefix}/${rawFileName}`;
+/**
+ * 执行单个数据库的独立导出 (mysqldump)
+ */
+function dumpSingleDatabase(options: {
+  dbName: string;
+  mysqldumpPath: string;
+  dbConfig: ReturnType<typeof getDbConfig>;
+  targetSubDir: string;
+  timestampStr: string;
+}): Promise<string> {
+  const { dbName, mysqldumpPath, dbConfig, targetSubDir, timestampStr } = options;
+  const rawFileName = `${dbName}_${timestampStr}.sql`;
   const finalFilePath = path.join(targetSubDir, rawFileName);
   const tempFilePath = path.join(
     targetSubDir,
-    `${rawFileName}.${Date.now()}.tmp`
+    `${rawFileName}.${Date.now()}_${Math.random().toString(36).substring(2, 6)}.tmp`
   );
-
-  const dbConfig = getDbConfig();
-  const mysqldumpPath =
-    process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
-
-  if (!fs.existsSync(mysqldumpPath)) {
-    const errorMsg = `mysqldump executable not found at path: ${mysqldumpPath}`;
-    const historyItem: BackupHistoryItem = {
-      id: generateId(),
-      timestamp: nowDate.toISOString(),
-      triggerType,
-      scheduleName,
-      databases,
-      sourceFolders: validSourceFolders,
-      filePath: finalFilePath,
-      targetDirectory: targetSubDir,
-      fileName: displayFileName,
-      fileSize: 0,
-      durationMs: Date.now() - startTime,
-      status: "FAILED",
-      hasFolders: validSourceFolders.length > 0,
-      errorMessage: errorMsg,
-    };
-    addHistoryItem(historyItem);
-    throw new Error(errorMsg);
-  }
 
   const args: string[] = [
     `--host=${dbConfig.host}`,
@@ -261,15 +242,9 @@ export async function executeBackup(options: {
     args.push(`--password=${dbConfig.password}`);
   }
 
-  args.push("--routines", "--triggers", "--single-transaction");
+  args.push("--routines", "--triggers", "--single-transaction", dbName);
 
-  if (databases.length === 1) {
-    args.push(databases[0]);
-  } else {
-    args.push("--databases", ...databases);
-  }
-
-  return new Promise<BackupHistoryItem>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const writeStream = fs.createWriteStream(tempFilePath, {
       flags: "w",
       encoding: "utf-8",
@@ -294,25 +269,7 @@ export async function executeBackup(options: {
           fs.unlinkSync(tempFilePath);
         } catch {}
       }
-
-      const historyItem: BackupHistoryItem = {
-        id: generateId(),
-        timestamp: new Date().toISOString(),
-        triggerType,
-        scheduleName,
-        databases,
-        sourceFolders: validSourceFolders,
-        filePath: finalFilePath,
-        targetDirectory: targetSubDir,
-        fileName: displayFileName,
-        fileSize: 0,
-        durationMs: Date.now() - startTime,
-        status: "FAILED",
-        hasFolders: validSourceFolders.length > 0,
-        errorMessage: err.message || "Failed to spawn mysqldump process",
-      };
-      addHistoryItem(historyItem);
-      reject(err);
+      reject(new Error(`Failed to spawn mysqldump for '${dbName}': ${err.message}`));
     });
 
     child.on("close", (code) => {
@@ -321,53 +278,14 @@ export async function executeBackup(options: {
       if (code === 0) {
         try {
           fs.renameSync(tempFilePath, finalFilePath);
-          const totalSize = getDirectorySizeBytes(targetSubDir);
-
-          const historyItem: BackupHistoryItem = {
-            id: generateId(),
-            timestamp: new Date().toISOString(),
-            triggerType,
-            scheduleName,
-            databases,
-            sourceFolders: validSourceFolders,
-            filePath: finalFilePath,
-            targetDirectory: targetSubDir,
-            fileName: displayFileName,
-            fileSize: totalSize,
-            durationMs: Date.now() - startTime,
-            status: "SUCCESS",
-            hasFolders: validSourceFolders.length > 0,
-            errorMessage: null,
-          };
-
-          addHistoryItem(historyItem);
-          resolve(historyItem);
-        } catch (renameErr: unknown) {
+          resolve(finalFilePath);
+        } catch (renameErr) {
           if (fs.existsSync(tempFilePath)) {
             try {
               fs.unlinkSync(tempFilePath);
             } catch {}
           }
-          const message =
-            renameErr instanceof Error ? renameErr.message : String(renameErr);
-          const historyItem: BackupHistoryItem = {
-            id: generateId(),
-            timestamp: new Date().toISOString(),
-            triggerType,
-            scheduleName,
-            databases,
-            sourceFolders: validSourceFolders,
-            filePath: finalFilePath,
-            targetDirectory: targetSubDir,
-            fileName: displayFileName,
-            fileSize: 0,
-            durationMs: Date.now() - startTime,
-            status: "FAILED",
-            hasFolders: validSourceFolders.length > 0,
-            errorMessage: `Failed to finalize file: ${message}`,
-          };
-          addHistoryItem(historyItem);
-          reject(new Error(message));
+          reject(renameErr);
         }
       } else {
         if (fs.existsSync(tempFilePath)) {
@@ -375,28 +293,104 @@ export async function executeBackup(options: {
             fs.unlinkSync(tempFilePath);
           } catch {}
         }
-
         const errorMsg =
-          stderrOutput.trim() || `mysqldump exited with error code ${code}`;
-        const historyItem: BackupHistoryItem = {
-          id: generateId(),
-          timestamp: new Date().toISOString(),
-          triggerType,
-          scheduleName,
-          databases,
-          sourceFolders: validSourceFolders,
-          filePath: finalFilePath,
-          targetDirectory: targetSubDir,
-          fileName: displayFileName,
-          fileSize: 0,
-          durationMs: Date.now() - startTime,
-          status: "FAILED",
-          hasFolders: validSourceFolders.length > 0,
-          errorMessage: errorMsg,
-        };
-        addHistoryItem(historyItem);
+          stderrOutput.trim() ||
+          `mysqldump exited with error code ${code} for database '${dbName}'`;
         reject(new Error(errorMsg));
       }
     });
   });
+}
+
+  // 7. 循环独立导出各个选中的 MySQL 数据库
+  const dbConfig = getDbConfig();
+  const mysqldumpPath =
+    process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
+
+  if (!fs.existsSync(mysqldumpPath)) {
+    const errorMsg = `mysqldump executable not found at path: ${mysqldumpPath}`;
+    const historyItem: BackupHistoryItem = {
+      id: generateId(),
+      timestamp: nowDate.toISOString(),
+      triggerType,
+      scheduleName,
+      databases,
+      sourceFolders: validSourceFolders,
+      filePath: targetSubDir,
+      filePaths: [],
+      targetDirectory: targetSubDir,
+      fileName: `${relativeDirPrefix}/[${databases.join(", ")}]`,
+      fileSize: 0,
+      durationMs: Date.now() - startTime,
+      status: "FAILED",
+      hasFolders: validSourceFolders.length > 0,
+      errorMessage: errorMsg,
+    };
+    addHistoryItem(historyItem);
+    throw new Error(errorMsg);
+  }
+
+  const generatedSqlFilePaths: string[] = [];
+  try {
+    for (const dbName of databases) {
+      const singleFilePath = await dumpSingleDatabase({
+        dbName,
+        mysqldumpPath,
+        dbConfig,
+        targetSubDir,
+        timestampStr,
+      });
+      generatedSqlFilePaths.push(singleFilePath);
+    }
+
+    const totalSize = getDirectorySizeBytes(targetSubDir);
+    const displayFileNames = generatedSqlFilePaths.map((p) => path.basename(p));
+    const displayFileName =
+      databases.length === 1
+        ? `${relativeDirPrefix}/${displayFileNames[0]}`
+        : `${relativeDirPrefix}/[${displayFileNames.join(", ")}]`;
+
+    const historyItem: BackupHistoryItem = {
+      id: generateId(),
+      timestamp: new Date().toISOString(),
+      triggerType,
+      scheduleName,
+      databases,
+      sourceFolders: validSourceFolders,
+      filePath: generatedSqlFilePaths[0] || targetSubDir,
+      filePaths: generatedSqlFilePaths,
+      targetDirectory: targetSubDir,
+      fileName: displayFileName,
+      fileSize: totalSize,
+      durationMs: Date.now() - startTime,
+      status: "SUCCESS",
+      hasFolders: validSourceFolders.length > 0,
+      errorMessage: null,
+    };
+
+    addHistoryItem(historyItem);
+    return historyItem;
+  } catch (dumpErr: unknown) {
+    const errorMsg =
+      dumpErr instanceof Error ? dumpErr.message : String(dumpErr);
+    const historyItem: BackupHistoryItem = {
+      id: generateId(),
+      timestamp: new Date().toISOString(),
+      triggerType,
+      scheduleName,
+      databases,
+      sourceFolders: validSourceFolders,
+      filePath: generatedSqlFilePaths[0] || targetSubDir,
+      filePaths: generatedSqlFilePaths,
+      targetDirectory: targetSubDir,
+      fileName: `${relativeDirPrefix}/[${databases.join(", ")}]`,
+      fileSize: 0,
+      durationMs: Date.now() - startTime,
+      status: "FAILED",
+      hasFolders: validSourceFolders.length > 0,
+      errorMessage: errorMsg,
+    };
+    addHistoryItem(historyItem);
+    throw new Error(errorMsg);
+  }
 }

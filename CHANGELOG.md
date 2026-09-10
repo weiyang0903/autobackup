@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-10 - 多数据库独立拆分导出与 ZIP 单包独立存放
+
+### 新增
+- 备份引擎新增多数据库独立拆分导出机制：同时勾选多个数据库时，依次为各数据库单独调用 mysqldump 生成各自独立的专属 `.sql` 文件（如 `db1_...sql` 和 `db2_...sql`），并在元数据中记录 `filePaths` 路径数组。
+- ZIP 打包下载支持多 SQL 文件并列存放：点击下载包含多个数据库的备份时，同一个 ZIP 压缩包内将并列包含各个独立的 `.sql` 脚本文件与源文件夹。
+
+### 修改
+- 历史记录删除与清理逻辑扩展支持遍历删除 `filePaths` 中的所有独立 SQL 文件。
+- 同步更新 `docs/MANUAL_BACKUP.md`、`docs/SCHEDULED_BACKUP.md`、`docs/BACKUP_HISTORY_MANAGEMENT.md` 现行文档。
+
 ## 2026-09-10 - ZIP 下载精准定向打包与手动备份安全独立删除改造
 
 ### 修复
