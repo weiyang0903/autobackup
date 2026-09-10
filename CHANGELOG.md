@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-10 - 多数据库手动导出 ZIP 压缩包命名规则优化
+
+### 优化
+- 优化 Manual 导出下载 ZIP 文件名生成逻辑：多选数据库时不再取第 1 个数据库作为文件名，而是统一采用 `multiple_{count}_dbs_backup_{id}.zip`（如 `multiple_3_dbs_backup_b_1789001.zip`）格式命名，纯源文件夹备份采用 `{folderName}_backup_{id}.zip` 或 `multiple_{count}_folders_backup_{id}.zip` 命名，语义更准确清晰。
+
+### 修改
+- 同步更新 `docs/MANUAL_BACKUP.md` 与 `docs/BACKUP_HISTORY_MANAGEMENT.md` 中关于多库 ZIP 打包命名的规范说明。
+
 ## 2026-09-10 - 多数据库独立拆分导出与 ZIP 单包独立存放
 
 ### 新增

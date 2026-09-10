@@ -48,13 +48,22 @@ export async function GET(req: NextRequest) {
         ? targetItem.filePath
         : path.dirname(targetItem.filePath));
 
-    // 构造 ZIP 下载文件名
-    const safeBaseName = (
-      targetItem.scheduleName ||
-      targetItem.databases[0] ||
-      "backup"
-    ).replace(/[/\\?%*:|"<> ]/g, "_");
+    // 构造清晰的 ZIP 下载文件名
+    let baseName = "backup";
+    if (targetItem.scheduleName) {
+      baseName = targetItem.scheduleName;
+    } else if (Array.isArray(targetItem.databases) && targetItem.databases.length > 1) {
+      baseName = `multiple_${targetItem.databases.length}_dbs`;
+    } else if (Array.isArray(targetItem.databases) && targetItem.databases.length === 1) {
+      baseName = targetItem.databases[0];
+    } else if (Array.isArray(targetItem.sourceFolders) && targetItem.sourceFolders.length > 0) {
+      baseName =
+        targetItem.sourceFolders.length === 1
+          ? path.basename(targetItem.sourceFolders[0])
+          : `multiple_${targetItem.sourceFolders.length}_folders`;
+    }
 
+    const safeBaseName = baseName.replace(/[/\\?%*:|"<> ]/g, "_");
     const zipFileName = `${safeBaseName}_backup_${targetItem.id}.zip`;
 
     // 创建 archiver 压缩实例

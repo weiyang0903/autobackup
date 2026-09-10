@@ -23,8 +23,12 @@
    - 后端基于 `archiver` 引擎**按当前记录元数据进行精准定向打包**：
      - 若当前记录包含多个数据库，则将每个数据库独立生成的专属 `.sql` 文件（`filePaths`）分别逐一加入同一个 ZIP 包根目录；
      - 若当前记录包含备份的源文件夹（`sourceFolders`），则只把本次复制的专属文件夹并列加入 ZIP 包；
-     - 杜绝同目录下其他历史备份或同日 Manual 备份混入压缩包中；
-   - 边流式压缩边响应推送到浏览器，直接保存为标准 `.zip` 文件（如 `homework_tracker_backup_b_1788944.zip`）。解压后可看到各个数据库独立的 `.sql` 文件以及备份的源文件夹。
+   - 边流式压缩边响应推送到浏览器，直接保存为标准 `.zip` 文件：
+     - **定时调度**：`{scheduleName}_backup_{id}.zip`；
+     - **单库手动备份**：`{dbName}_backup_{id}.zip`；
+     - **多库手动备份**：`multiple_{count}_dbs_backup_{id}.zip`（如 `multiple_3_dbs_backup_b_1789001.zip`）；
+     - **纯源文件夹备份**：`{folderName}_backup_{id}.zip` 或 `multiple_{count}_folders_backup_{id}.zip`。
+   - 解压后可看到各个数据库独立的 `.sql` 文件以及备份的源文件夹。
 4. **安全删除与空目录联动清理**：
    - 点击操作列的删除图标；
    - 弹出确认对话框提示用户；

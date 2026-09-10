@@ -56,7 +56,9 @@ sequenceDiagram
 3. **文件命名格式与多库独立拆分机制**：
    - **单库导出**：`{databaseName}_{YYYY-MM-DD_HHmmss}.sql`（例如 `shop_db_2026-09-10_153000.sql`）；
    - **多库批量导出**：系统依次为每一个选中的数据库独立执行导出，在当前日期目录下分别生成各自专属的 `.sql` 文件（例如 `db1_2026-09-10_153000.sql` 和 `db2_2026-09-10_153000.sql`），彻底杜绝多数据库混杂在单文件内；
-   - **ZIP 打包下载**：点击下载时，同一个 ZIP 压缩包内将并列包含各个独立的 `.sql` 脚本文件。
+   - **ZIP 打包下载命名规范**：
+     - 单库导出 ZIP 命名：`{databaseName}_backup_{id}.zip`（例如 `shop_db_backup_b_1789001.zip`）；
+     - 多库批量导出 ZIP 命名：`multiple_{count}_dbs_backup_{id}.zip`（例如 `multiple_3_dbs_backup_b_1789001.zip`），同一个压缩包内并列包含各个独立的 `.sql` 脚本文件。
 4. **`mysqldump` 参数组合**：
    - `--routines`：导出存储过程和自定义函数；
    - `--triggers`：导出数据表关联的触发器；
