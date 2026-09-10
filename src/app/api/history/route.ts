@@ -77,27 +77,52 @@ export async function DELETE(req: NextRequest) {
     if (deletePhysicalFile) {
       let parentDirToClean = "";
 
-      // 1. 若有独立运行目标目录，递归清理该时间目录
-      if (removed.targetDirectory && fs.existsSync(removed.targetDirectory)) {
-        try {
-          parentDirToClean = path.dirname(path.resolve(removed.targetDirectory));
-          fs.rmSync(removed.targetDirectory, { recursive: true, force: true });
-        } catch (dirErr) {
-          console.error(
-            `Failed to delete target directory ${removed.targetDirectory}:`,
-            dirErr
-          );
+      if (removed.triggerType === "manual") {
+        // 1. 手动导出：仅删除属于该记录的 SQL 主文件及复制的专属文件夹，不误删同日期目录下的其他手动备份
+        if (removed.filePath && fs.existsSync(removed.filePath)) {
+          try {
+            fs.unlinkSync(removed.filePath);
+          } catch (fileErr) {
+            console.error(`Failed to delete SQL file ${removed.filePath}:`, fileErr);
+          }
         }
-      } else if (removed.filePath && fs.existsSync(removed.filePath)) {
-        // 2. 否则单独删除主文件
-        try {
-          parentDirToClean = path.dirname(path.resolve(removed.filePath));
-          fs.unlinkSync(removed.filePath);
-        } catch (fileErr) {
-          console.error(
-            `Failed to delete physical file ${removed.filePath}:`,
-            fileErr
-          );
+        if (removed.targetDirectory && Array.isArray(removed.sourceFolders)) {
+          for (const srcFolder of removed.sourceFolders) {
+            const folderBaseName = path.basename(srcFolder);
+            const copiedPath = path.join(removed.targetDirectory, folderBaseName);
+            if (fs.existsSync(copiedPath)) {
+              try {
+                fs.rmSync(copiedPath, { recursive: true, force: true });
+              } catch (folderErr) {
+                console.error(`Failed to delete copied folder ${copiedPath}:`, folderErr);
+              }
+            }
+          }
+        }
+        // 向上清理从当前日期的 Immediate_Manual_Export 目录开始
+        parentDirToClean = removed.targetDirectory || (removed.filePath ? path.dirname(removed.filePath) : "");
+      } else {
+        // 2. 定时任务：拥有独立的时间点子目录 (scheduleName_id/YYYY-MM-DD/HH_mm_ss)，安全递归删除该时间点目录
+        if (removed.targetDirectory && fs.existsSync(removed.targetDirectory)) {
+          try {
+            parentDirToClean = path.dirname(path.resolve(removed.targetDirectory));
+            fs.rmSync(removed.targetDirectory, { recursive: true, force: true });
+          } catch (dirErr) {
+            console.error(
+              `Failed to delete target directory ${removed.targetDirectory}:`,
+              dirErr
+            );
+          }
+        } else if (removed.filePath && fs.existsSync(removed.filePath)) {
+          try {
+            parentDirToClean = path.dirname(path.resolve(removed.filePath));
+            fs.unlinkSync(removed.filePath);
+          } catch (fileErr) {
+            console.error(
+              `Failed to delete physical file ${removed.filePath}:`,
+              fileErr
+            );
+          }
         }
       }
 

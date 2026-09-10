@@ -39,19 +39,14 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Backup record not found", { status: 404 });
     }
 
-    // 确定本次备份所在的物理目录
+    // 检查并收集属于当前备份记录的具体物理文件与文件夹
+    let hasEntries = false;
     const targetDir =
       targetItem.targetDirectory ||
       (fs.existsSync(targetItem.filePath) &&
       fs.statSync(targetItem.filePath).isDirectory()
         ? targetItem.filePath
         : path.dirname(targetItem.filePath));
-
-    if (!fs.existsSync(targetDir)) {
-      return new NextResponse("Backup directory does not exist on disk", {
-        status: 404,
-      });
-    }
 
     // 构造 ZIP 下载文件名
     const safeBaseName = (
@@ -66,6 +61,36 @@ export async function GET(req: NextRequest) {
     const archive = createZipInstance({
       zlib: { level: 6 },
     });
+
+    // 1. 若存在本次备份的 SQL 文件，精确添加该文件
+    if (
+      targetItem.filePath &&
+      fs.existsSync(targetItem.filePath) &&
+      fs.statSync(targetItem.filePath).isFile()
+    ) {
+      const sqlFileName = path.basename(targetItem.filePath);
+      archive.file(targetItem.filePath, { name: sqlFileName });
+      hasEntries = true;
+    }
+
+    // 2. 若存在本次备份复制的专属源文件夹，精确添加对应的文件夹
+    if (Array.isArray(targetItem.sourceFolders) && targetItem.sourceFolders.length > 0) {
+      for (const srcFolder of targetItem.sourceFolders) {
+        const folderBaseName = path.basename(srcFolder);
+        const copiedFolderPath = path.join(targetDir, folderBaseName);
+        if (fs.existsSync(copiedFolderPath) && fs.statSync(copiedFolderPath).isDirectory()) {
+          archive.directory(copiedFolderPath, folderBaseName);
+          hasEntries = true;
+        }
+      }
+    }
+
+    // 若既没有找到 SQL 文件，也没有找到任何复制的文件夹
+    if (!hasEntries) {
+      return new NextResponse("Backup file or folder does not exist on disk", {
+        status: 404,
+      });
+    }
 
     // 创建 Web ReadableStream 将 node-stream 桥接给 Next.js Response
     const stream = new ReadableStream({
@@ -82,8 +107,6 @@ export async function GET(req: NextRequest) {
           controller.error(err);
         });
 
-        // 将目标目录内的所有文件与子文件夹加入压缩包根目录
-        archive.directory(targetDir, false);
         archive.finalize();
       },
     });
