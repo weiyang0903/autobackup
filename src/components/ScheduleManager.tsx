@@ -74,12 +74,12 @@ export function ScheduleManager({
   const [frequencyType, setFrequencyType] =
     useState<ScheduleFrequencyType>("hourly");
 
-  // Daily / Weekly 的时间点列表 (默认 09:00)
-  const [timesList, setTimesList] = useState<string[]>(["09:00"]);
-  const [currentTimeInput, setCurrentTimeInput] = useState("18:00");
+  // Daily / Weekly 的时间点列表 (初始不预选任何时间点，由用户自主添加)
+  const [timesList, setTimesList] = useState<string[]>([]);
+  const [currentTimeInput, setCurrentTimeInput] = useState("09:00");
 
-  // Weekly 的选中星期 (默认周一 Mon)
-  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([1]);
+  // Weekly 的选中星期 (初始不预选任何星期，由用户自主点选)
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
 
   const [backupDir, setBackupDir] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -136,25 +136,16 @@ export function ScheduleManager({
 
   // 移除时间点
   const handleRemoveTime = (timeToRemove: string) => {
-    if (timesList.length === 1) {
-      setFormError("At least one backup time must be configured");
-      return;
-    }
     setFormError(null);
     setTimesList(timesList.filter((t) => t !== timeToRemove));
   };
 
   // 切换星期选择
   const handleToggleWeekDay = (dayIndex: number) => {
+    setFormError(null);
     if (selectedWeekDays.includes(dayIndex)) {
-      if (selectedWeekDays.length === 1) {
-        setFormError("Please select at least one day for weekly backup");
-        return;
-      }
-      setFormError(null);
       setSelectedWeekDays(selectedWeekDays.filter((d) => d !== dayIndex));
     } else {
-      setFormError(null);
       setSelectedWeekDays([...selectedWeekDays, dayIndex]);
     }
   };
@@ -212,8 +203,8 @@ export function ScheduleManager({
         setSourceFolders([]);
         setFolderInput("");
         setFrequencyType("hourly");
-        setTimesList(["09:00"]);
-        setSelectedWeekDays([1]);
+        setTimesList([]);
+        setSelectedWeekDays([]);
         setBackupDir("");
         fetchSchedules();
       } else {
@@ -515,6 +506,11 @@ export function ScheduleManager({
                   );
                 })}
               </div>
+              {selectedWeekDays.length === 0 && (
+                <p className="text-[11px] text-amber-600">
+                  No days selected. Please click on one or more days above.
+                </p>
+              )}
             </div>
           )}
 
@@ -542,24 +538,30 @@ export function ScheduleManager({
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {timesList.map((time) => (
-                  <span
-                    key={time}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100/70 border border-purple-200 text-purple-900 rounded-lg text-xs font-mono font-medium"
-                  >
-                    <span>{time}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTime(time)}
-                      className="text-purple-400 hover:text-purple-700 transition-colors"
-                      title="Remove time"
+              {timesList.length === 0 ? (
+                <p className="text-[11px] text-amber-600 pt-0.5">
+                  No backup time added yet. Pick a time and click &quot;Add Time&quot;.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {timesList.map((time) => (
+                    <span
+                      key={time}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100/70 border border-purple-200 text-purple-900 rounded-lg text-xs font-mono font-medium"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+                      <span>{time}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTime(time)}
+                        className="text-purple-400 hover:text-purple-700 transition-colors"
+                        title="Remove time"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
