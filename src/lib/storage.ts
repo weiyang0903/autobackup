@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
-import { BackupHistoryItem, ScheduleItem, SystemConfig } from "@/types";
+import { BackupHistoryItem, ScheduleItem, SystemConfig, UserItem } from "@/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CONFIG_FILE = path.join(DATA_DIR, "config.json");
 const SCHEDULES_FILE = path.join(DATA_DIR, "schedules.json");
 const HISTORY_FILE = path.join(DATA_DIR, "history.json");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
 
 /**
  * 确保数据目录及默认文件存在
@@ -118,4 +119,26 @@ export function deleteHistoryItem(id: string): BackupHistoryItem | null {
   const [removed] = list.splice(index, 1);
   atomicWriteJson(HISTORY_FILE, list);
   return removed;
+}
+
+// ========================
+// 用户数据读写 (RBAC)
+// ========================
+
+export function getUsers(): UserItem[] {
+  return safeReadJson<UserItem[]>(USERS_FILE, []);
+}
+
+export function saveUsers(users: UserItem[]): void {
+  atomicWriteJson(USERS_FILE, users);
+}
+
+export function getUserByUsername(username: string): UserItem | null {
+  const users = getUsers();
+  return users.find((u) => u.username.toLowerCase() === username.toLowerCase()) || null;
+}
+
+export function getUserById(id: string): UserItem | null {
+  const users = getUsers();
+  return users.find((u) => u.id === id) || null;
 }

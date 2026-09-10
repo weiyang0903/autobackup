@@ -13,12 +13,13 @@ import {
   Folder,
   Archive,
 } from "lucide-react";
-import { BackupHistoryItem } from "@/types";
+import { BackupHistoryItem, UserRole } from "@/types";
 
 interface BackupHistoryTableProps {
   history: BackupHistoryItem[];
   loading: boolean;
   onRefresh: () => void;
+  currentUserRole?: UserRole;
 }
 
 function formatBytes(bytes?: number): string {
@@ -33,6 +34,7 @@ export function BackupHistoryTable({
   history,
   loading,
   onRefresh,
+  currentUserRole,
 }: BackupHistoryTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -126,17 +128,24 @@ export function BackupHistoryTable({
 
                   {/* Trigger */}
                   <td className="py-3 px-4 whitespace-nowrap">
-                    {item.triggerType === "manual" ? (
-                      <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
-                        <Sparkles className="w-3 h-3 text-emerald-600" />
-                        Manual
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-[11px]">
-                        <Clock className="w-3 h-3 text-purple-600" />
-                        {item.scheduleName || "Schedule"}
-                      </span>
-                    )}
+                    <div className="space-y-0.5">
+                      {item.triggerType === "manual" ? (
+                        <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          Manual
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-[11px]">
+                          <Clock className="w-3 h-3 text-purple-600" />
+                          {item.scheduleName || "Schedule"}
+                        </span>
+                      )}
+                      {item.triggeredBy && (
+                        <div className="text-[10px] text-slate-400 pl-0.5">
+                          by {item.triggeredBy}
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Targets (Databases & Folders) */}
@@ -213,13 +222,16 @@ export function BackupHistoryTable({
                         </a>
                       )}
 
-                      <button
-                        onClick={() => handleDelete(item.id, item.fileName)}
-                        className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-md transition-colors"
-                        title="Delete record & files"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* 仅超级管理员 (Admin) 允许执行删除记录与物理备份文件 */}
+                      {currentUserRole === "admin" && (
+                        <button
+                          onClick={() => handleDelete(item.id, item.fileName)}
+                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-md transition-colors"
+                          title="Delete record & files (Admin only)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

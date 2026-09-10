@@ -13,10 +13,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const triggeredBy = req.headers.get("x-user-name") || "manual";
+
     const result = await executeBackup({
       databases: body.databases,
       customBackupDir: body.customBackupDir,
       triggerType: "manual",
+      triggeredBy,
     });
 
     return NextResponse.json({ success: true, item: result });

@@ -91,6 +91,7 @@ export async function executeBackup(options: {
   triggerType: BackupTriggerType;
   scheduleName?: string | null;
   scheduleId?: string | null;
+  triggeredBy?: string | null;
 }): Promise<BackupHistoryItem> {
   const {
     databases = [],
@@ -99,6 +100,7 @@ export async function executeBackup(options: {
     triggerType,
     scheduleName,
     scheduleId,
+    triggeredBy = null,
   } = options;
   const startTime = Date.now();
   const nowDate = new Date();
@@ -199,6 +201,7 @@ export async function executeBackup(options: {
       timestamp: nowDate.toISOString(),
       triggerType,
       scheduleName,
+      triggeredBy,
       databases: [],
       sourceFolders: validSourceFolders,
       filePath: targetSubDir,
@@ -314,6 +317,7 @@ function dumpSingleDatabase(options: {
       timestamp: nowDate.toISOString(),
       triggerType,
       scheduleName,
+      triggeredBy,
       databases,
       sourceFolders: validSourceFolders,
       filePath: targetSubDir,
@@ -355,6 +359,7 @@ function dumpSingleDatabase(options: {
       timestamp: new Date().toISOString(),
       triggerType,
       scheduleName,
+      triggeredBy,
       databases,
       sourceFolders: validSourceFolders,
       filePath: generatedSqlFilePaths[0] || targetSubDir,
@@ -378,6 +383,7 @@ function dumpSingleDatabase(options: {
       timestamp: new Date().toISOString(),
       triggerType,
       scheduleName,
+      triggeredBy,
       databases,
       sourceFolders: validSourceFolders,
       filePath: generatedSqlFilePaths[0] || targetSubDir,

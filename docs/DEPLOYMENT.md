@@ -26,7 +26,7 @@
    copy .env.example .env
    ```
 3. **检查 `.env` 配置项**：
-   打开 `.env` 文件，根据当前 XAMPP 环境确认或调整参数：
+   打开 `.env` 文件，根据当前 XAMPP 环境与安全需求确认或调整参数：
    ```env
    DB_HOST=127.0.0.1
    DB_PORT=3306
@@ -35,7 +35,13 @@
    MYSQLDUMP_PATH=C:\xampp\mysql\bin\mysqldump.exe
    DEFAULT_BACKUP_DIR=./backups
    PORT=3000
+
+   # 可选安全与认证配置（推荐正式环境配置）
+   # SESSION_SECRET=your-custom-secret-key-at-least-32-chars
+   # INITIAL_ADMIN_PASSWORD=admin123
    ```
+   - **`SESSION_SECRET`（可选）**：用于对用户登录会话（Cookie Token）进行 HMAC-SHA256 签名加密。本地测试可留空（使用系统内置默认密钥）；部署至正式服务器或外网时，建议取消注释并设置 32 位以上的自定义随机密钥。
+   - **`INITIAL_ADMIN_PASSWORD`（可选）**：系统在**首次启动**且尚未创建 `data/users.json` 时，自动初始化的超级管理员 `admin` 的密码。默认密码为 `admin123`。若有安全规范要求不得使用通用弱密码，可在初次启动前在此指定专属初始密码。系统一旦完成首次初始化，该变量便不再生效，后续修改密码均在系统页面内完成。
 4. **安装项目依赖**：
    在项目根目录下执行安装命令（使用本地项目依赖）：
    ```cmd
@@ -66,6 +72,9 @@ npm run dev
 
 ### 访问方式：
 - 打开浏览器访问：`http://localhost:3000`
+- 系统将自动重定向至登录页（`/login`）。初次部署登录默认凭据为：
+  - **Username**：`admin`
+  - **Password**：`admin123`（若在 `.env` 中指定了 `INITIAL_ADMIN_PASSWORD`，则为您自定义的初始密码）
 - 控制台将显示热编译日志与 API 调度器初始化状态。
 
 ---
@@ -90,12 +99,16 @@ npm run start
 
 ### 访问方式：
 - 打开浏览器访问：`http://localhost:3000`
+- 系统将自动重定向至登录页面（`/login`）。初次部署登录默认管理员凭据为：
+  - **Username**：`admin`
+  - **Password**：`admin123`（若在 `.env` 中指定了 `INITIAL_ADMIN_PASSWORD`，则为您自定义的初始密码）
+- 登录后请点击右上角钥匙图标（Change Password）立即修改密码。
 
 ---
 
 ## 5. 持久化数据与备份目录说明
 
-- **配置与任务存储**：系统运行时产生的数据自动保存在 `data/` 目录（`config.json`, `schedules.json`, `history.json`），均已纳入 Git 忽略规则。
+- **配置与任务存储**：系统运行时产生的数据自动保存在 `data/` 目录（`config.json`, `schedules.json`, `history.json`, `users.json`），均已纳入 Git 忽略规则。
 - **备份文件存放**：导出的 `.sql` 文件默认存放在 `./backups/` 目录，或用户指定的自定义绝对路径（如 `D:\mysql_backups`）。
 - **定时任务守护**：只要 Node.js 进程保持运行，系统内置的调度引擎即可按设定时间在后台自动触发备份。
 

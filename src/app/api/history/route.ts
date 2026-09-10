@@ -52,6 +52,18 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
     const deletePhysicalFile = searchParams.get("deleteFile") === "true";
 
+    // 权限校验：仅允许超级管理员 (Admin) 执行删除历史记录与物理文件
+    const userRole = req.headers.get("x-user-role");
+    if (userRole && userRole !== "admin") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Only administrators can delete backup history and files",
+        },
+        { status: 403 }
+      );
+    }
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: "History ID is required" },

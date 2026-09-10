@@ -1,0 +1,12 @@
+[
+  {
+    "id": "u_init_admin_001",
+    "username": "admin",
+    "passwordHash": "220e372fec7c59476cd458c9b0893962854d956065ee299fc16ce0ef67e82571699511cf717ff22cfa2697327e0c4441984adaf44325026d4f8d356e79f8519f",
+    "salt": "a82f349be88a2ef86df7659a8449c237",
+    "role": "admin",
+    "active": true,
+    "createdAt": "2026-09-10T00:00:00.000Z",
+    "lastLogin": null
+  }
+]

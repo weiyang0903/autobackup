@@ -22,6 +22,7 @@ export interface BackupHistoryItem {
   timestamp: string; // ISO 格式
   triggerType: BackupTriggerType;
   scheduleName?: string | null;
+  triggeredBy?: string | null; // 触发操作人用户名 (如 admin, operator1)
   databases: string[];
   sourceFolders?: string[]; // 备份的源文件夹列表
   filePath: string; // 主备份文件路径或所在目录绝对路径
@@ -83,4 +84,37 @@ export interface ManualBackupRequest {
   databases: string[];
   sourceFolders?: string[];
   customBackupDir?: string;
+}
+
+// 用户角色定义
+export type UserRole = "admin" | "operator";
+
+// 用户持久化存储实体 (data/users.json)
+export interface UserItem {
+  id: string;
+  username: string;
+  passwordHash: string;
+  salt: string;
+  role: UserRole;
+  active: boolean;
+  createdAt: string;
+  lastLogin?: string | null;
+}
+
+// 用户公开基本信息 (脱敏)
+export interface UserPublicInfo {
+  id: string;
+  username: string;
+  role: UserRole;
+  active: boolean;
+  createdAt: string;
+  lastLogin?: string | null;
+}
+
+// 会话 Payload
+export interface SessionPayload {
+  userId: string;
+  username: string;
+  role: UserRole;
+  exp: number; // 过期时间戳
 }

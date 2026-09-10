@@ -14,7 +14,7 @@
 
 1. **历史记录展示**：
    - 页面自动拉取 `/api/history`；
-   - 列表展示：状态徽章（Success / Failed）、触发来源（Manual / 调度名称）、目标数据库名与源文件夹名、相对路径、包含 SQL 与文件夹在内的总体积、执行耗时及时间戳。
+   - 列表展示：状态徽章（Success / Failed）、触发来源与操作人审计（`Manual (username)` / 调度名称）、目标数据库名与源文件夹名、相对路径、包含 SQL 与文件夹在内的总体积、执行耗时及时间戳。
 2. **复制完整文件/目录路径**：
    - 点击路径前方的复制图标，系统将该次备份的完整绝对物理路径写入系统剪贴板，并显示绿勾反馈。
 3. **一键精准 ZIP 打包下载**：
@@ -29,7 +29,8 @@
      - **多库手动备份**：`multiple_{count}_dbs_backup_{id}.zip`（如 `multiple_3_dbs_backup_b_1789001.zip`）；
      - **纯源文件夹备份**：`{folderName}_backup_{id}.zip` 或 `multiple_{count}_folders_backup_{id}.zip`。
    - 解压后可看到各个数据库独立的 `.sql` 文件以及备份的源文件夹。
-4. **安全删除与空目录联动清理**：
+4. **安全删除与空目录联动清理（仅限 Administrator 权限）**：
+   - **权限控制**：物理删除历史备份严格限制为 `admin` 角色。对于 `operator` 角色，表格操作列自动隐藏 Delete 按钮；若通过 API 尝试强行删除，后端将直接拦截并返回 403 Forbidden；
    - 点击操作列的删除图标；
    - 弹出确认对话框提示用户；
    - 确认后请求 `DELETE /api/history?id=xxx&deleteFile=true`：
@@ -60,6 +61,7 @@
 | :--- | :--- | :--- |
 | **缺少 Backup ID** | 请求 `/api/backup/download` 未提供 `id` 参数 | 返回 HTTP 400 与错误提示："Backup ID is required"。 |
 | **记录不存在** | 历史记录在 `history.json` 中已被删除 | 返回 HTTP 404 与错误提示："Backup record not found"。 |
+| **无权删除备份** | Operator 角色请求 `DELETE /api/history` | 返回 HTTP 403 与错误提示："Forbidden: Only administrators can delete backup records"。 |
 | **物理文件或文件夹丢失** | 磁盘上的 `.sql` 文件或文件夹已被外部删除 | 返回 HTTP 404 与错误提示："Backup file or folder does not exist on disk"。 |
 | **大文件压缩中断** | 客户端网络断开或取消下载 | Node.js 流式传输机制自动捕获并安全销毁归档器与文件流句柄。 |
 | **删除时目录只读/占用** | 个别文件正被其他程序独占打开 | 捕获删除错误并记录日志，保证元数据正常清理。 |

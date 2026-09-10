@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026-09-10 - 修复初始管理员密码哈希与模板有效性
+
+### 修复
+- 修复 `data/users.json` 及 `data/users.json.example` 中默认管理员密码哈希值与实际 scrypt 计算结果不一致的问题，校准为初始密码 `admin123` 对应的真实加盐哈希，确保部署后使用 `admin / admin123` 顺利开箱登录。
+
+## 2026-09-10 - 用户登录认证与基于角色的权限控制 (RBAC) 系统
+
+### 新增
+- 新增登录认证与安全会话管理：引入基于 Web Crypto HMAC-SHA256 签名的轻量会话机制，通过 HttpOnly、SameSite 严格 Cookie 保证安全通信，未授权请求全站自动重定向至登录页 `/login`。
+- 新增双角色权限控制体系（RBAC）：定义 Administrator（系统管理员）与 Operator（操作员）双角色；Operator 可执行手动备份、调度管理、查看与下载 ZIP 备份，但受严格约束——物理禁止删除历史备份与备份文件，无权访问用户管理模块。
+- 新增用户管理与自服务密码修改功能：管理员可开通、启用/禁用、重置密码与删除普通操作员账号（内置管理员账号享有防自锁保护）；所有登录用户均可在顶部导航栏自服务修改个人密码。
+- 新增数据操作审计追踪：手动备份记录与历史记录中自动注入当前登录用户的真实用户名（`triggeredBy`），实现安全审计可追溯。
+- 新增独立技术规范文档 `docs/AUTHENTICATION_AND_USER_MANAGEMENT.md`，并在 `data/` 目录下提供开箱即用的模板 `users.json.example`。
+
+### 修改
+- 修改历史记录删除 API（`/api/history`）与表格视图：后端接口严格校验权限，非管理员用户请求删除时拒绝并返回 403 Forbidden；前端根据用户角色自动隐藏操作员界面中的 Delete 按钮。
+- 修改全局中间件 `middleware.ts`：保护全站路由与 API 端点，对受保护接口提取用户上下文并通过 Header 传递至下游处理程序。
+- 同步更新部署文档 `docs/DEPLOYMENT.md` 与环境变量规范 `docs/ENV_CONFIGURATION.md`，补充默认登录凭证与安全环境变量说明。
+- 全面更新 `README.md`、`docs/BACKUP_HISTORY_MANAGEMENT.md`、`docs/MANUAL_BACKUP.md`、`docs/SCHEDULED_BACKUP.md` 与 `docs/DATABASE_SELECTION.md`，补齐权限矩阵约束、触发人审计追溯与各功能模块在登录态下的行为规范。
+
 ## 2026-09-10 - Automated Schedules 新建规则取消默认时间与星期预选
 
 ### 优化

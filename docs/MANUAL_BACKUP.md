@@ -6,7 +6,7 @@
 
 ## 1. 功能概述
 
-用户在界面选择目标数据库后，可指定自定义目标根目录（或直接使用系统默认目录），点击 "Export Now" 按钮立即由后端调用 XAMPP `mysqldump.exe` 进行导出。系统会在目标根目录下自动创建 `Immediate_Manual_Export/` 专属文件夹，并在其内部按当天日期（`YYYY-MM-DD`）创建子目录，将生成的 `.sql` 文件存入其中。
+系统已通过权限体系全面保护，已登录的用户（不论是 `Admin` 还是 `Operator` 角色）在界面选择目标数据库后，可指定自定义目标根目录（或直接使用系统默认目录），点击 "Export Now" 按钮立即由后端调用 XAMPP `mysqldump.exe` 进行导出。系统会在目标根目录下自动创建 `Immediate_Manual_Export/` 专属文件夹，并在其内部按当天日期（`YYYY-MM-DD`）创建子目录，将生成的 `.sql` 文件存入其中。同时，后端会自动提取当前登录用户的用户名注入到审计历史中的 `triggeredBy` 字段，实现清晰的操作人追溯。
 
 ---
 
@@ -15,28 +15,31 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 用户
+    actor User as 当前登录用户 (Admin/Operator)
     participant UI as 前端控制台
+    participant Middleware as 全局中间件
     participant API as /api/backup/manual
     participant Dump as mysqldump 子进程
     participant Storage as 文件系统 (Immediate_Manual_Export/日期) & history.json
 
     User->>UI: 勾选目标数据库并点击 Export Now
-    UI->>API: POST 请求 (databases, customBackupDir)
-    API->>API: 校验数据库名与目标路径合法性
+    UI->>Middleware: POST 请求 (携带会话 Cookie)
+    Middleware->>Middleware: 验签通过，注入 x-user-name 请求头
+    Middleware->>API: 转发请求 (databases, customBackupDir)
+    API->>API: 校验数据库名与目标路径合法性，读取操作人用户名
     API->>Storage: 构建 Immediate_Manual_Export/YYYY-MM-DD 目录并递归创建
     API->>Storage: 在该子目录下创建临时输出文件 (.sql.tmp)
     API->>Dump: 启动子进程执行 mysqldump 并流式写入
     alt 导出成功 (Exit Code 0)
         Dump-->>API: 进程结束 (code 0)
         API->>Storage: 重命名临时文件为正式 .sql 文件
-        API->>Storage: 写入成功记录至 history.json (包含完整层级路径)
+        API->>Storage: 写入成功记录至 history.json (记录 filePaths 及 triggeredBy: username)
         API-->>UI: 返回成功响应 (fileName, size, duration)
         UI-->>User: 绿色勾选提示并刷新历史列表
     else 导出失败 (Exit Code != 0 或异常)
         Dump-->>API: 进程报错
         API->>Storage: 自动删除未完成的 .sql.tmp 文件
-        API->>Storage: 写入失败记录至 history.json
+        API->>Storage: 写入失败记录至 history.json (记录 triggeredBy: username)
         API-->>UI: 返回 400/500 错误信息 (stderr)
         UI-->>User: 红色错误提示，保留用户原有表单输入
     end
@@ -70,6 +73,7 @@ sequenceDiagram
 
 | 错误类型 | 触发原因 | 处理策略 |
 | :--- | :--- | :--- |
+| **未登录或会话过期** | Cookie 缺失或签名失效 | 全局中间件拦截并重定向至 `/login` 登录页，保护 API 安全。 |
 | **未选数据库** | 用户未勾选任何库 | 前端阻止请求并给出提示。 |
 | **路径无写权限** | 目标目录为只读或系统保护目录 | 后端在 `fs.access` 阶段拦截并报错返回。 |
 | **mysqldump 不存在** | `.env` 路径配置错误 | 记录失败审计，提示检查 XAMPP 安装路径。 |

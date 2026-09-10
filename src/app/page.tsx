@@ -7,10 +7,11 @@ import { DatabaseSelector } from "@/components/DatabaseSelector";
 import { ManualBackupCard } from "@/components/ManualBackupCard";
 import { ScheduleManager } from "@/components/ScheduleManager";
 import { BackupHistoryTable } from "@/components/BackupHistoryTable";
-import { DatabaseInfo, SystemStatus, BackupHistoryItem } from "@/types";
+import { DatabaseInfo, SystemStatus, BackupHistoryItem, UserPublicInfo } from "@/types";
 
 export default function HomePage() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserPublicInfo | null>(null);
   const [databases, setDatabases] = useState<DatabaseInfo[]>([]);
   const [history, setHistory] = useState<BackupHistoryItem[]>([]);
   const [selectedDatabases, setSelectedDatabases] = useState<string[]>([]);
@@ -18,6 +19,19 @@ export default function HomePage() {
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [loadingDatabases, setLoadingDatabases] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // 0. 获取当前登录用户信息
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.success) {
+        setCurrentUser(data.user);
+      }
+    } catch (err) {
+      console.error("Failed to fetch current user:", err);
+    }
+  }, []);
 
   // 1. 获取系统连通性与配置
   const fetchStatus = useCallback(async () => {
@@ -70,10 +84,11 @@ export default function HomePage() {
 
   // 全局数据初始化与刷新
   const refreshAll = useCallback(() => {
+    fetchCurrentUser();
     fetchStatus();
     fetchDatabases();
     fetchHistory();
-  }, [fetchStatus, fetchDatabases, fetchHistory]);
+  }, [fetchCurrentUser, fetchStatus, fetchDatabases, fetchHistory]);
 
   useEffect(() => {
     refreshAll();
@@ -88,6 +103,7 @@ export default function HomePage() {
         status={status}
         loading={loadingStatus || loadingDatabases || loadingHistory}
         onRefresh={refreshAll}
+        currentUser={currentUser}
       />
 
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6 flex-1">
@@ -147,6 +163,7 @@ export default function HomePage() {
             history={history}
             loading={loadingHistory}
             onRefresh={fetchHistory}
+            currentUserRole={currentUser?.role}
           />
         </div>
       </main>

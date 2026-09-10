@@ -21,6 +21,8 @@
 | `MYSQLDUMP_PATH` | `C:\xampp\mysql\bin\mysqldump.exe` | 是 | XAMPP 原生提供的 `mysqldump` 可执行文件绝对路径。 |
 | `DEFAULT_BACKUP_DIR` | `./backups` | 是 | 默认备份文件存放目录。支持相对路径或系统绝对路径（如 `D:\backups`）。 |
 | `PORT` | `3000` | 否 | Web 控制台服务端监听端口。 |
+| `SESSION_SECRET` | 随机默认密钥 | 否 | 会话签名密钥（至少 32 字符），用于 HMAC-SHA256 签名校验。建议生产环境单独指定。 |
+| `INITIAL_ADMIN_PASSWORD` | `admin123` | 否 | 首次初始化创建 `admin` 账号时的初始密码（若已有 `data/users.json` 则忽略）。 |
 
 ---
 
@@ -41,7 +43,7 @@
 ## 4. 业务规则与边界约束
 
 1. **零外部数据库依赖**：
-   - 系统的配置（`config.json`）、定时规则（`schedules.json`）和备份历史（`history.json`）全部保存在 `data/` 目录下；
+   - 系统的配置（`config.json`）、定时规则（`schedules.json`）、用户与权限账户（`users.json`）和备份历史（`history.json`）全部保存在 `data/` 目录下；
    - 严禁向用户 MySQL 内部创建配置表，杜绝因 MySQL 停机导致备份系统自身崩溃的死锁问题。
 2. **原子写入安全**：
    - 对 `data/*.json` 的写入统一采用原子文件重命名机制（先写入 `.tmp` 临时文件，校验完整后原子替换），杜绝进程断电或中断产生损坏的 JSON 文件。
