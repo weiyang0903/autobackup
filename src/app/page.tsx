@@ -66,11 +66,15 @@ export default function HomePage() {
     }
   }, []);
 
-  // 3. 获取备份历史
-  const fetchHistory = useCallback(async () => {
-    setLoadingHistory(true);
+  // 3. 获取备份历史 (支持 silent 静默更新，不触发表格全屏 Loading 闪烁)
+  const fetchHistory = useCallback(async (silent = false) => {
+    if (!silent) setLoadingHistory(true);
     try {
       const res = await fetch("/api/history");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setHistory(data.history);
@@ -78,21 +82,53 @@ export default function HomePage() {
     } catch (err) {
       console.error("Failed to fetch backup history:", err);
     } finally {
-      setLoadingHistory(false);
+      if (!silent) setLoadingHistory(false);
     }
   }, []);
 
-  // 全局数据初始化与刷新
+  // 调度组件静默刷新标记
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
+
+  // 全局数据初始化与手动刷新
   const refreshAll = useCallback(() => {
     fetchCurrentUser();
     fetchStatus();
     fetchDatabases();
     fetchHistory();
+    setScheduleRefreshKey((prev) => prev + 1);
   }, [fetchCurrentUser, fetchStatus, fetchDatabases, fetchHistory]);
 
   useEffect(() => {
     refreshAll();
   }, [refreshAll]);
+
+  // 4. 定时静默拉取 (每 5 秒自动同步最新自动备份历史与调度执行状态，无需手动刷新页面)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // 若当前页面处于后台非激活状态，跳过以节省系统资源
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+      fetchHistory(true);
+      setScheduleRefreshKey((prev) => prev + 1);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [fetchHistory]);
+
+  // 5. 监听浏览器标签页激活事件 (切回页面时立即核对一次最新数据)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchHistory(true);
+        setScheduleRefreshKey((prev) => prev + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchHistory]);
 
   const availableDbNames = databases.map((d) => d.name);
 
@@ -154,6 +190,7 @@ export default function HomePage() {
           <ScheduleManager
             availableDatabases={availableDbNames}
             defaultBackupDir={status?.defaultBackupDir || "./backups"}
+            refreshTrigger={scheduleRefreshKey}
           />
         </div>
 

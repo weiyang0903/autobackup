@@ -16,6 +16,7 @@ import { ScheduleItem, ScheduleFrequencyType } from "@/types";
 interface ScheduleManagerProps {
   availableDatabases: string[];
   defaultBackupDir: string;
+  refreshTrigger?: number;
 }
 
 const WEEK_DAYS = [
@@ -61,6 +62,7 @@ function formatScheduleSummary(item: ScheduleItem): string {
 export function ScheduleManager({
   availableDatabases,
   defaultBackupDir,
+  refreshTrigger,
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,9 +87,9 @@ export function ScheduleManager({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // 加载调度列表
-  const fetchSchedules = async () => {
-    setLoading(true);
+  // 加载调度列表 (支持 silent 静默刷新，不触发骨架加载状态)
+  const fetchSchedules = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/schedules");
       const data = await res.json();
@@ -97,13 +99,19 @@ export function ScheduleManager({
     } catch (err) {
       console.error("Failed to load schedules:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchSchedules();
   }, []);
+
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchSchedules(true);
+    }
+  }, [refreshTrigger]);
 
   // 添加源文件夹
   const handleAddFolder = () => {

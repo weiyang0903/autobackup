@@ -62,6 +62,8 @@ flowchart TD
     J --> K1[循环为各数据库独立调用 mysqldump 生成各自独立的 .sql 文件]
     J --> K2[调用 fs.cpSync 递归复制源文件夹到该子目录]
     K1 & K2 --> L[统计 SQL 与文件夹总体积 & 写入 data/history.json 审计日志]
+    L --> M[更新规则上次执行时间 Last run 并持久化至 data/schedules.json]
+    M --> N[前端 5 秒后台静默轮询自动捕获最新历史与 Last run 时间并即时渲染]
 ```
 
 ---
