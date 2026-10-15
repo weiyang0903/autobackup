@@ -151,3 +151,14 @@ sequenceDiagram
 | **HTTP 403 Forbidden** | Operator 角色尝试调用 `/api/users` | 中间件拦截并返回："Forbidden: Admin privilege required"。 |
 | **HTTP 403 Forbidden** | Operator 角色尝试调用 `DELETE /api/history` | 接口拦截并返回："Forbidden: Only administrators can delete backup history and files"。 |
 | **HTTP 409 Conflict** | 新建用户时用户名与已有用户重复（不区分大小写） | 拦截并提示："Username '{username}' is already taken"。 |
+
+---
+
+## 7. 相关功能文档库
+
+- 📖 [docs/DEPLOYMENT.md](DEPLOYMENT.md) - 开发模式与生产模式部署指南
+- ⚙️ [docs/ENV_CONFIGURATION.md](ENV_CONFIGURATION.md) - 环境变量与配置项规范
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与选择功能
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 📂 [docs/BACKUP_HISTORY_MANAGEMENT.md](BACKUP_HISTORY_MANAGEMENT.md) - 备份历史与文件管理功能

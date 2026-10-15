@@ -77,5 +77,55 @@ sequenceDiagram
 | **未选数据库** | 用户未勾选任何库 | 前端阻止请求并给出提示。 |
 | **路径无写权限** | 目标目录为只读或系统保护目录 | 后端在 `fs.access` 阶段拦截并报错返回。 |
 | **mysqldump 不存在** | `.env` 路径配置错误 | 记录失败审计，提示检查 XAMPP 安装路径。 |
-| **SQL 语法或权限异常** | 数据库损坏或表锁 | 捕获 `stderr` 详细输出并记录到失败历史中。 |
 | **磁盘空间不足** | 写入过程中磁盘满 | 触发进程异常，自动清理残缺 `.tmp` 文件并返回明确错误。 |
+
+---
+
+## 5. 接口规范 (API Specification)
+
+### `POST /api/backup/manual`
+- **请求权限**：需要有效登录会话（Admin 或 Operator 均可）。
+- **请求载荷 (JSON Payload)**：
+  ```json
+  {
+    "databases": ["petty_cash_claim", "semipack_traceability"],
+    "customBackupDir": "D:\\mysql_backups"
+  }
+  ```
+  - `databases`（必填，string[]）：需要导出的数据库名称数组；
+  - `customBackupDir`（可选，string）：自定义输出根目录，不传则使用系统默认的 `DEFAULT_BACKUP_DIR`。
+- **成功响应示例**（HTTP 200）：
+  ```json
+  {
+    "success": true,
+    "item": {
+      "id": "b_1792024907051_opt862",
+      "timestamp": "2026-10-15T00:41:47.051Z",
+      "triggerType": "manual",
+      "triggeredBy": "admin",
+      "databases": ["semipack_traceability"],
+      "sourceFolders": [],
+      "filePath": "C:\\xampp\\htdocs\\autobackup\\backups\\Immediate_Manual_Export\\2026-10-15\\semipack_traceability_2026-10-15_084144.sql",
+      "filePaths": [
+        "C:\\xampp\\htdocs\\autobackup\\backups\\Immediate_Manual_Export\\2026-10-15\\semipack_traceability_2026-10-15_084144.sql"
+      ],
+      "targetDirectory": "C:\\xampp\\htdocs\\autobackup\\backups\\Immediate_Manual_Export\\2026-10-15",
+      "fileName": "Immediate_Manual_Export/2026-10-15/semipack_traceability_2026-10-15_084144.sql",
+      "fileSize": 222523,
+      "durationMs": 2725,
+      "status": "SUCCESS",
+      "hasFolders": false,
+      "errorMessage": null
+    }
+  }
+  ```
+
+---
+
+## 6. 相关功能文档库
+
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与选择功能
+- 📂 [docs/BACKUP_HISTORY_MANAGEMENT.md](BACKUP_HISTORY_MANAGEMENT.md) - 备份历史与文件管理功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制 (RBAC)
+

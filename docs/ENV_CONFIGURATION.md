@@ -60,3 +60,15 @@
 | **密码错误** | `ER_ACCESS_DENIED_ERROR` | 界面提示访问被拒绝，提示检查 `.env` 中的 `DB_PASSWORD`。 |
 | **mysqldump 路径不存在** | 文件不存在 | 状态栏显示 "mysqldump Not Found"，并在导出时明确拦截提示路径错误。 |
 | **`.env` 文件缺失** | 变量为空 | 自动回退至默认安全配置（`127.0.0.1:3306`, `root` 无密码）。 |
+
+---
+
+## 6. 相关功能文档库
+
+- 📖 [docs/DEPLOYMENT.md](DEPLOYMENT.md) - 开发模式与生产模式部署指南
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制 (RBAC)
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与多选功能
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 📂 [docs/BACKUP_HISTORY_MANAGEMENT.md](BACKUP_HISTORY_MANAGEMENT.md) - 备份历史与文件管理功能
+

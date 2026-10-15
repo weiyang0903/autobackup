@@ -62,10 +62,23 @@
 
 | 异常情况 | 触发原因 | 处理策略 |
 | :--- | :--- | :--- |
-| **缺少 Backup ID** | 请求 `/api/backup/download` 未提供 `id` 参数 | 返回 HTTP 400 与错误提示："Backup ID is required"。 |
-| **记录不存在** | 历史记录在 `history.json` 中已被删除 | 返回 HTTP 404 与错误提示："Backup record not found"。 |
-| **无权删除备份** | Operator 角色请求 `DELETE /api/history` | 返回 HTTP 403 与错误提示："Forbidden: Only administrators can delete backup records"。 |
+| **缺少 Backup ID** | 请求 `/api/backup/download` 或 `DELETE /api/history` 未提供 `id` 参数 | 返回 HTTP 400 与错误提示："Backup ID is required" 或 "History ID is required"。 |
+| **记录不存在** | 历史记录在 `history.json` 中已被删除 | 返回 HTTP 404 与错误提示："Backup record not found" 或 "History record not found"。 |
+| **无权删除备份** | Operator 角色请求 `DELETE /api/history` | 返回 HTTP 403 与错误提示："Forbidden: Only administrators can delete backup history and files"。 |
 | **物理文件或文件夹丢失** | 磁盘上的 `.sql` 文件或文件夹已被外部删除 | 返回 HTTP 404 与错误提示："Backup file or folder does not exist on disk"。 |
 | **大文件压缩中断** | 客户端网络断开或取消下载 | Node.js 流式传输机制自动捕获并安全销毁归档器与文件流句柄。 |
 | **删除时目录只读/占用** | 个别文件正被其他程序独占打开 | 捕获删除错误并记录日志，保证元数据正常清理。 |
 | **父目录非空** | 同一日期目录下还有其他手动/定时备份 | 仅清理当前记录的文件/目录，保留父级日期目录与其兄弟备份文件。 |
+
+---
+
+## 5. 相关功能文档库
+
+- 📖 [docs/DEPLOYMENT.md](DEPLOYMENT.md) - 开发模式与生产模式部署指南
+- ⚙️ [docs/ENV_CONFIGURATION.md](ENV_CONFIGURATION.md) - 环境变量与配置项规范
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与选择功能
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制 (RBAC)
+
+

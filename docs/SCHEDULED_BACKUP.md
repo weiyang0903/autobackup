@@ -88,6 +88,44 @@ flowchart TD
 | :--- | :--- | :--- |
 | **源文件夹不存在或为普通文件** | 输入了错误的路径或误选了文件 | 前后端在校验阶段直接拦截并给出具体路径错误提示，阻止保存。 |
 | **源文件夹包含备份目标目录** | 用户配置将 `backups` 复制进 `backups` | 触发自包含拦截："Cannot backup the backup destination directory itself"。 |
-| **文件被外部占用 (EBUSY)** | 复制过程中个别日志或图片正被其他进程打开 | 捕获锁定错误并记录详细错误日志，避免进程崩溃。 |
-| **磁盘空间不足 (ENOSPC)** | 复制大文件夹过程中磁盘写满 | 自动中断写入，清理当前未完成的临时文件碎片，并记录状态为 `FAILED` 的历史日志。 |
 | **执行时 MySQL 临时离线** | 仅备份数据库时 MySQL 未启动 | 捕获连接错误，记录失败日志；若同时配置了文件夹备份，仍会保证文件夹正常复制完成。 |
+
+---
+
+## 7. 接口规范 (API Specification)
+
+### 7.1 `GET /api/schedules`
+- **说明**：获取当前所有定时调度规则配置。
+- **权限**：需要有效登录会话（Admin 或 Operator）。
+
+### 7.2 `POST /api/schedules`
+- **说明**：创建一条新的定时调度规则。
+- **请求载荷 (JSON Payload)**：
+  ```json
+  {
+    "name": "Daily Core DB & Uploads Backup",
+    "databases": ["petty_cash_claim"],
+    "sourceFolders": ["C:\\xampp\\htdocs\\uploads"],
+    "frequencyType": "daily",
+    "times": ["08:45"],
+    "backupDir": "C:\\xampp\\htdocs\\autobackup\\backups",
+    "enabled": true
+  }
+  ```
+
+### 7.3 `PUT /api/schedules`
+- **说明**：更新现有调度规则（如启停切换、修改时间、增减目标库/文件夹）。
+- **请求载荷**：包含目标规则 `id` 及需修改的字段（如 `{"id": "sched_xxx", "enabled": false}`）。
+
+### 7.4 `DELETE /api/schedules?id={id}`
+- **说明**：删除指定的调度规则，并从内存调度引擎中注销对应的活动定时任务。
+
+---
+
+## 8. 相关功能文档库
+
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与选择功能
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- 📂 [docs/BACKUP_HISTORY_MANAGEMENT.md](BACKUP_HISTORY_MANAGEMENT.md) - 备份历史与文件管理功能
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制 (RBAC)
+

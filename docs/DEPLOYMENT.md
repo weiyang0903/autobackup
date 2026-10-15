@@ -123,3 +123,15 @@ npm run start
    - 检查 `.env` 中的 `MYSQLDUMP_PATH` 路径是否正确指向存在的 `mysqldump.exe`。
 3. **端口被占用 (Port 3003 in use)**：
    - 可在 `.env` 中修改 `PORT=3004`，或使用 `npm run dev -- -p 3004` 指定端口启动。
+
+---
+
+## 7. 相关功能文档库
+
+- ⚙️ [docs/ENV_CONFIGURATION.md](ENV_CONFIGURATION.md) - 环境变量与配置项规范
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制 (RBAC)
+- 🗄️ [docs/DATABASE_SELECTION.md](DATABASE_SELECTION.md) - 数据库检索与多选功能
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 📂 [docs/BACKUP_HISTORY_MANAGEMENT.md](BACKUP_HISTORY_MANAGEMENT.md) - 备份历史与文件管理功能
+

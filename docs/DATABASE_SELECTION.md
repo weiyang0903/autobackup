@@ -39,10 +39,48 @@
 
 ---
 
-## 4. 错误处理机制
+## 4. 接口规范 (API Specification)
 
-| 异常情况 | 触发原因 | 处理策略 |
+### `GET /api/databases`
+- **请求权限**：需要有效登录会话（Admin 或 Operator 均可）。
+- **查询参数**：
+  - `includeSystem`（可选，boolean，默认为 `false`）：是否在返回列表中包含系统保留数据库。
+- **成功响应示例**（HTTP 200）：
+  ```json
+  {
+    "success": true,
+    "databases": [
+      {
+        "name": "petty_cash_claim",
+        "tableCount": 18,
+        "sizeBytes": 119888,
+        "isSystem": false
+      },
+      {
+        "name": "semipack_traceability",
+        "tableCount": 25,
+        "sizeBytes": 222523,
+        "isSystem": false
+      }
+    ]
+  }
+  ```
+
+---
+
+## 5. 错误处理机制
+
+| 异常情况 | 触发原因 | 处理策略与错误提示 |
 | :--- | :--- | :--- |
-| **MySQL 离线** | MySQL 服务未启动 | 列表区显示无数据库提示，并在顶部弹出醒目的红色连接错误通知。 |
-| **权限不足读取统计** | 用户无 `information_schema` 读权限 | 容错降级处理，表数量与体积显示为默认 `0`，仍保留库名以支持导出。 |
+| **未登录或会话失效** | 未携带有效 Cookie 请求接口 | 中间件拦截并返回 HTTP 401："Unauthorized: Please log in first"。 |
+| **MySQL 离线** | XAMPP MySQL 服务未启动 | 接口返回 HTTP 500，并在界面顶部弹出醒目的红色连接错误通知。 |
+| **权限不足读取统计** | 用户无 `information_schema` 读权限 | 容错降级处理，表数量与体积显示为默认 `0`，仍保留库名以支持正常导出。 |
 | **未选择任何数据库** | 用户未勾选直接点击导出 | 前端拦截提交并提示："Please select at least one database above before exporting."。 |
+
+---
+
+## 6. 相关功能文档
+- ⚡ [docs/MANUAL_BACKUP.md](MANUAL_BACKUP.md) - 即时手动导出备份功能
+- ⏰ [docs/SCHEDULED_BACKUP.md](SCHEDULED_BACKUP.md) - 定时自动备份调度功能
+- 🔐 [docs/AUTHENTICATION_AND_USER_MANAGEMENT.md](AUTHENTICATION_AND_USER_MANAGEMENT.md) - 用户登录认证与权限控制
+

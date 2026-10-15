@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-10-15 - 全面重构 README 与完善功能文档库规范
+
+### 新增
+- 针对 `README.md` 进行全面规范化重构：新增隐私与安全体系（Local-First、RBAC 细粒度权限、scrypt 加盐防碰撞、Web Crypto 会话签名、路径穿透与死循环防御）、详细项目结构树目录、系统备注与运行要求、开源社区致谢致敬名单等七大核心板块。
+- 为 `docs/DATABASE_SELECTION.md`、`docs/MANUAL_BACKUP.md` 与 `docs/SCHEDULED_BACKUP.md` 补齐对应的服务端 RESTful API 接口规范、入参载荷与成功响应示例。
+
+### 修改
+- 校准 `docs/BACKUP_HISTORY_MANAGEMENT.md` 中无权删除备份时抛出的精确错误文案（与实际 API 保持一致：`Forbidden: Only administrators can delete backup history and files`）。
+- 全面完善 `docs/` 下全部现行功能文档（`DATABASE_SELECTION.md`、`DEPLOYMENT.md`、`ENV_CONFIGURATION.md`、`MANUAL_BACKUP.md`、`SCHEDULED_BACKUP.md`、`BACKUP_HISTORY_MANAGEMENT.md`、`AUTHENTICATION_AND_USER_MANAGEMENT.md`）底部的“相关功能文档库”交叉索引导航，形成闭环文档体系。
+
 ## 2026-10-15 - 服务端监听端口调整为 3003
 
 ### 修改
