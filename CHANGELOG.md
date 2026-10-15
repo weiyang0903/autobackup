@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-10-15 - 依赖安全升级并清零 npm 审计漏洞
+
+### 修改
+- 将 Next.js 从 15.5.25 升级至 16.4.1、`node-cron` 从 3.0.3 升级至 4.6.0、Tailwind CSS 从 3.4.x 升级至 4.3.3，并重新生成依赖锁文件，将 `npm audit` 报告由 14 个漏洞（5 个中危、9 个高危）降至 0 个。
+- 按 Next.js 16 规范将全局路由守卫从 `src/middleware.ts` 迁移为 `src/proxy.ts`，同步更新生成的 Next.js 类型声明、TypeScript 配置与动态文件路径的 Turbopack 追踪标记。
+- 按 Tailwind CSS 4 规范改用 `@tailwindcss/postcss` 与 CSS-first 主题配置，并同步更新全局样式入口。
+- 调整定时任务注册代码以兼容 `node-cron` 4 的 API，并以项目内 TypeScript 类型检查脚本替换 Next.js 16 已移除的 `next lint` 命令。
+- 更新 `README.md`、部署文档与认证文档中的框架版本、Node.js 最低版本要求及 `proxy.ts` 文件说明。
+
+### 删除
+- 移除不再需要的 `@types/node-cron`、`autoprefixer` 与旧版 `tailwind.config.ts` 配置文件。
+
 ## 2026-10-15 - 修复未登录或幽灵会话异常访问控制台功能的认证漏洞
 
 ### 修复

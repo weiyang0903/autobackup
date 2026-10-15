@@ -8,7 +8,7 @@
 
 在部署前，请确保目标机器已安装并配置好以下基础软件：
 
-1. **Node.js**：建议使用 `v18.18.0` 或更高版本（支持最新 Next.js 运行环境）；
+1. **Node.js**：使用 `v20.9.0` 或更高版本（Next.js 16 的最低运行要求）；
 2. **XAMPP**：已安装并运行 XAMPP（支持 XAMPP Control Panel v3.2.2 及更高版本）；
 3. **MySQL 服务**：确保在 XAMPP Control Panel 中已点击 **Start** 启动 MySQL 服务（默认端口 `3306`）；
 4. **mysqldump 工具**：确保 XAMPP 安装目录中存在 `mysqldump.exe`（默认路径为 `C:\xampp\mysql\bin\mysqldump.exe`）。

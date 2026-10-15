@@ -41,7 +41,7 @@
 sequenceDiagram
     autonumber
     actor User as 用户 (浏览器)
-    participant MW as Next.js 中间件 (middleware.ts)
+    participant MW as Next.js 中间件 (proxy.ts)
     participant AuthAPI as /api/auth/login
     participant Storage as data/users.json
     participant Page as 控制台首页 (/)
@@ -73,7 +73,7 @@ sequenceDiagram
     autonumber
     actor User as 用户 (Operator / Admin)
     participant UI as 前端控制台
-    participant MW as 中间件 (middleware.ts)
+    participant MW as 中间件 (proxy.ts)
     participant UserAPI as /api/users
     participant HistoryAPI as DELETE /api/history
 

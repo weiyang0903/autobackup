@@ -33,7 +33,9 @@ export async function checkSystemStatus(): Promise<SystemStatus> {
     process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
   const defaultBackupDir = process.env.DEFAULT_BACKUP_DIR || "./backups";
 
-  const mysqldumpAvailable = fs.existsSync(mysqldumpPath);
+  const mysqldumpAvailable = fs.existsSync(
+    /* turbopackIgnore: true */ mysqldumpPath
+  );
 
   let mysqlConnected = false;
   let errorMessage: string | null = null;

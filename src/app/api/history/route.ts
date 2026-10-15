@@ -87,7 +87,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const backupRootDir = path.resolve(
-      process.cwd(),
+      /* turbopackIgnore: true */ process.cwd(),
       process.env.DEFAULT_BACKUP_DIR || "./backups"
     );
 

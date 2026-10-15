@@ -29,7 +29,7 @@ export function resolveAndValidateBackupDir(dirPath: string): {
   // 统一转为绝对路径
   const resolved = path.isAbsolute(dirPath)
     ? path.resolve(dirPath)
-    : path.resolve(process.cwd(), dirPath);
+    : path.resolve(/* turbopackIgnore: true */ process.cwd(), dirPath);
 
   // 确保目录存在，不存在则递归创建
   try {
@@ -68,11 +68,17 @@ export function validateSourceFolder(
 
   const resolvedSource = path.isAbsolute(folderPath.trim())
     ? path.resolve(folderPath.trim())
-    : path.resolve(process.cwd(), folderPath.trim());
+    : path.resolve(
+        /* turbopackIgnore: true */ process.cwd(),
+        folderPath.trim()
+      );
 
   const resolvedBackupRoot = path.isAbsolute(backupRootDir)
     ? path.resolve(backupRootDir)
-    : path.resolve(process.cwd(), backupRootDir);
+    : path.resolve(
+        /* turbopackIgnore: true */ process.cwd(),
+        backupRootDir
+      );
 
   try {
     if (!fs.existsSync(resolvedSource)) {

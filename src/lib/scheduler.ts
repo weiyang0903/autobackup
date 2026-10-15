@@ -123,9 +123,6 @@ function registerCronTask(schedule: ScheduleItem): void {
               err
             );
           }
-        },
-        {
-          scheduled: true,
         }
       );
 

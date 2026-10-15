@@ -310,7 +310,7 @@ function dumpSingleDatabase(options: {
   const mysqldumpPath =
     process.env.MYSQLDUMP_PATH || "C:\\xampp\\mysql\\bin\\mysqldump.exe";
 
-  if (!fs.existsSync(mysqldumpPath)) {
+  if (!fs.existsSync(/* turbopackIgnore: true */ mysqldumpPath)) {
     const errorMsg = `mysqldump executable not found at path: ${mysqldumpPath}`;
     const historyItem: BackupHistoryItem = {
       id: generateId(),

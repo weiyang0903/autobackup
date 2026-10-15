@@ -1,10 +1,10 @@
 # XAMPP MySQL 自动备份与管理系统 (AutoBackup)
 
-![Next.js 15](https://img.shields.io/badge/Next.js-15.2.1-black?style=flat-square&logo=next.js)
-![React 19](https://img.shields.io/badge/React-19.0.0-61dafb?style=flat-square&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?style=flat-square&logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38b2ac?style=flat-square&logo=tailwind-css)
-![node-cron](https://img.shields.io/badge/node--cron-3.0-orange?style=flat-square)
+![Next.js 16](https://img.shields.io/badge/Next.js-16.4.1-black?style=flat-square&logo=next.js)
+![React 19](https://img.shields.io/badge/React-19.2.8-61dafb?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38b2ac?style=flat-square&logo=tailwind-css)
+![node-cron](https://img.shields.io/badge/node--cron-4.6-orange?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows_XAMPP-blue?style=flat-square)
 ![Port](https://img.shields.io/badge/Default_Port-3003-green?style=flat-square)
 
@@ -33,7 +33,7 @@
 ## 🚀 2. 快速启动 (Quick Start)
 
 ### 2.1 环境要求
-- **Node.js**：`v18.18.0` 或更高版本（推荐使用 LTS 版本）；
+- **Node.js**：`v20.9.0` 或更高版本（推荐使用 LTS 版本）；
 - **XAMPP**：已在 Windows 上安装 XAMPP，并在 XAMPP Control Panel 中启动 **MySQL** 服务（默认端口 `3306`）；
 - **mysqldump 工具**：确保 `C:\xampp\mysql\bin\mysqldump.exe` 真实存在。
 
@@ -114,7 +114,7 @@ autobackup/
 ├── .env / .env.example          # 环境配置文件 (MySQL连接、端口3003、mysqldump路径)
 ├── next.config.ts               # Next.js 配置文件 (配置 serverExternalPackages)
 ├── package.json                 # 项目依赖定义与启动脚本 (-p 3003)
-├── tailwind.config.ts           # Tailwind CSS 样式配置
+├── postcss.config.mjs           # Tailwind CSS v4 PostCSS 配置
 ├── tsconfig.json                # TypeScript 编译配置
 ├── initial.sql / demo.sql       # 初始系统库与测试业务数据导入脚本
 ├── backups/                     # 默认物理备份存放目录 (按规范自动分层归档)
@@ -136,7 +136,7 @@ autobackup/
 │   ├── SCHEDULED_BACKUP.md               # 定时自动备份调度规范
 │   └── CHANGELOG_GUIDE.md                # 更新日志维护指南
 └── src/
-    ├── middleware.ts            # 全局路由守卫 (会话验签与 RBAC 权限拦截)
+    ├── proxy.ts                 # 全局路由守卫 (会话验签与 RBAC 权限拦截)
     ├── types/
     │   └── index.ts             # 全局 TypeScript 接口与类型定义
     ├── lib/
