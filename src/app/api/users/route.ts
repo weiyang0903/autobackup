@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   verifySessionToken,
+  verifyAuthenticatedUser,
   hashPassword,
   sanitizeUser,
 } from "@/lib/auth";
@@ -16,19 +17,20 @@ import { UserItem, UserRole } from "@/types";
  * 校验当前请求是否来自已登录的超级管理员 (Admin)
  */
 function verifyAdminSession(req: NextRequest) {
-  const token = req.cookies.get("autobackup_session")?.value;
-  if (!token) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated || !auth.user) {
     return {
       authorized: false,
-      response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      ),
+      response:
+        auth.response ||
+        NextResponse.json(
+          { success: false, error: "Authentication required" },
+          { status: 401 }
+        ),
     };
   }
 
-  const payload = verifySessionToken(token);
-  if (!payload || payload.role !== "admin") {
+  if (auth.user.role !== "admin") {
     return {
       authorized: false,
       response: NextResponse.json(
@@ -41,7 +43,7 @@ function verifyAdminSession(req: NextRequest) {
     };
   }
 
-  return { authorized: true, currentUserId: payload.userId };
+  return { authorized: true, currentUserId: auth.user.id };
 }
 
 // 1. 获取用户列表 (Admin 独占)

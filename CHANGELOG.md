@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-10-15 - 修复未登录或幽灵会话异常访问控制台功能的认证漏洞
+
+### 修复
+- 修复未登录或残留孤儿 Token 用户访问控制台首页时，在无登录态（Header 无用户信息与登出按钮）下仍能查看数据库、调度与历史数据的重大认证隐患。
+- 修复 `src/app/api/auth/me` 在用户不存在或已禁用时未清除浏览器 Cookie 的问题：验证失败时主动下发 `Max-Age: 0` 响应头清除 `autobackup_session`，杜绝幽灵会话循环。
+- 修复全局中间件 `middleware.ts` 在会话签名校验失败时未清除旧 Cookie 的问题。
+- 修复受保护业务接口（`/api/databases`、`/api/history`、`/api/schedules`、`/api/system/status`、`/api/system/browse-directories`、`/api/backup/manual`、`/api/backup/download`）仅依赖中间件且未核验用户实体在存储中是否存在或被禁用的漏洞：统一接入 `verifyAuthenticatedUser` 进行服务端实体状态深度校验。
+- 修复前端首页在初始认证检查通过前渲染操作看板的缺陷：增加 `authChecking` 守卫与过渡态，若认证未通过（401）立即执行全页重定向至 `/login`，并在顶部导航栏为未登录状态增加兜底的 "Sign In" 按钮。
+
+### 修改
+- 同步更新 `docs/AUTHENTICATION_AND_USER_MANAGEMENT.md`：详述三层纵深防御体系（L1 Edge 中间件签名校验、L2 服务端实体存活核查与孤儿 Cookie 驱逐、L3 前端认证守卫与 401 联动重定向）。
+
 ## 2026-10-15 - 定时备份规则支持全量可视化编辑修改
 
 ### 新增

@@ -1,6 +1,7 @@
 import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { UserItem, UserPublicInfo, SessionPayload, UserRole } from "@/types";
-import { getUsers, saveUsers, getUserByUsername } from "./storage";
+import { getUsers, saveUsers, getUserByUsername, getUserById } from "./storage";
 
 const SESSION_SECRET =
   process.env.SESSION_SECRET || "autobackup_secure_session_secret_key_2026";
@@ -163,4 +164,70 @@ export function ensureInitialAdmin(): UserItem {
   users.unshift(newAdmin);
   saveUsers(users);
   return newAdmin;
+}
+
+/**
+ * 严格校验当前请求的会话 Token 与用户实体状态
+ * 1. 验证签名有效性与时间戳
+ * 2. 检查用户实体是否依然存在于存储中
+ * 3. 检查用户是否处于激活状态 (active === true)
+ * 若验证不通过，统一返回 401 JSON 响应，并清除浏览器中的旧 Session Cookie (清除幽灵会话)
+ */
+export function verifyAuthenticatedUser(req: NextRequest): {
+  authenticated: boolean;
+  user?: UserItem;
+  response?: NextResponse;
+} {
+  // 确保系统存在初始管理员
+  const currentUsers = getUsers();
+  if (currentUsers.length === 0) {
+    ensureInitialAdmin();
+  }
+
+  const token = req.cookies.get("autobackup_session")?.value;
+  if (!token) {
+    return {
+      authenticated: false,
+      response: NextResponse.json(
+        { success: false, error: "Unauthorized: Please log in first" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const payload = verifySessionToken(token);
+  if (!payload) {
+    const res = NextResponse.json(
+      { success: false, error: "Unauthorized: Session expired or invalid" },
+      { status: 401 }
+    );
+    res.cookies.set({
+      name: "autobackup_session",
+      value: "",
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    return { authenticated: false, response: res };
+  }
+
+  const user = getUserById(payload.userId);
+  if (!user || !user.active) {
+    const res = NextResponse.json(
+      { success: false, error: "Unauthorized: User not found or disabled" },
+      { status: 401 }
+    );
+    res.cookies.set({
+      name: "autobackup_session",
+      value: "",
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    return { authenticated: false, response: res };
+  }
+
+  return { authenticated: true, user };
 }

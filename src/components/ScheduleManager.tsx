@@ -97,6 +97,10 @@ export function ScheduleManager({
     if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/schedules");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setSchedules(data.schedules);

@@ -90,15 +90,37 @@ export async function middleware(req: NextRequest) {
   if (!valid || !payload) {
     // API 请求返回 401 JSON
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: "Unauthorized: Please log in first" },
         { status: 401 }
       );
+      if (sessionToken) {
+        response.cookies.set({
+          name: "autobackup_session",
+          value: "",
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 0,
+        });
+      }
+      return response;
     }
     // 页面请求重定向至 /login
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    if (sessionToken) {
+      response.cookies.set({
+        name: "autobackup_session",
+        value: "",
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+    }
+    return response;
   }
 
   // 3. 角色权限拦截：非 Admin 用户禁止调用用户管理 API (/api/users/*)

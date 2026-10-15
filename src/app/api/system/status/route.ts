@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { checkSystemStatus } from "@/lib/db";
 import { initScheduler } from "@/lib/scheduler";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 // 保证调度器在首个请求时启动初始化
 let isSchedulerInitialized = false;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     if (!isSchedulerInitialized) {
       initScheduler();

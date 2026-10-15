@@ -19,17 +19,30 @@ export default function HomePage() {
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [loadingDatabases, setLoadingDatabases] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
 
   // 0. 获取当前登录用户信息
-  const fetchCurrentUser = useCallback(async () => {
+  const fetchCurrentUser = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("/api/auth/me");
+      if (res.status === 401 || !res.ok) {
+        window.location.href = "/login";
+        return false;
+      }
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.user) {
         setCurrentUser(data.user);
+        return true;
+      } else {
+        window.location.href = "/login";
+        return false;
       }
     } catch (err) {
       console.error("Failed to fetch current user:", err);
+      window.location.href = "/login";
+      return false;
+    } finally {
+      setAuthChecking(false);
     }
   }, []);
 
@@ -38,6 +51,10 @@ export default function HomePage() {
     setLoadingStatus(true);
     try {
       const res = await fetch("/api/system/status");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       const data = await res.json();
       setStatus(data);
     } catch (err) {
@@ -52,6 +69,10 @@ export default function HomePage() {
     setLoadingDatabases(true);
     try {
       const res = await fetch("/api/databases");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setDatabases(data.databases);
@@ -90,8 +111,9 @@ export default function HomePage() {
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
   // 全局数据初始化与手动刷新
-  const refreshAll = useCallback(() => {
-    fetchCurrentUser();
+  const refreshAll = useCallback(async () => {
+    const isAuthed = await fetchCurrentUser();
+    if (!isAuthed) return;
     fetchStatus();
     fetchDatabases();
     fetchHistory();
@@ -120,15 +142,30 @@ export default function HomePage() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        fetchHistory(true);
-        setScheduleRefreshKey((prev) => prev + 1);
+        fetchCurrentUser().then((authed) => {
+          if (authed) {
+            fetchHistory(true);
+            setScheduleRefreshKey((prev) => prev + 1);
+          }
+        });
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchHistory]);
+  }, [fetchCurrentUser, fetchHistory]);
+
+  if (authChecking && !currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium text-slate-500">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   const availableDbNames = databases.map((d) => d.name);
 

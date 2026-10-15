@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import * as archiverModule from "archiver";
 import { getHistory } from "@/lib/storage";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 // 获取可靠的 archiver 压缩实例 (完美兼容 Archiver v8 ZipArchive 类与 v7/v6 历史版本的工厂函数)
 const createZipInstance = (options: { zlib: { level: number } }) => {
@@ -24,6 +25,9 @@ const createZipInstance = (options: { zlib: { level: number } }) => {
 };
 
 export async function GET(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

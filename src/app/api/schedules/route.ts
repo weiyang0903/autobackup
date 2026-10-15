@@ -12,9 +12,13 @@ import {
   validateSourceFolder,
 } from "@/lib/validation";
 import { ScheduleItem, ScheduleFrequencyType } from "@/types";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 // 获取所有定时调度规则
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const schedules = getSchedules();
     return NextResponse.json({ success: true, schedules });
@@ -29,6 +33,9 @@ export async function GET() {
 
 // 创建新的定时调度规则
 export async function POST(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const body = await req.json();
     const {
@@ -214,6 +221,9 @@ export async function POST(req: NextRequest) {
 
 // 切换状态或更新调度
 export async function PUT(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const body = await req.json();
     const {
@@ -441,6 +451,9 @@ export async function PUT(req: NextRequest) {
 
 // 删除调度任务
 export async function DELETE(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

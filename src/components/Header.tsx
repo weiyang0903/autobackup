@@ -118,7 +118,7 @@ export function Header({
             <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
             {/* User Info & Actions */}
-            {currentUser && (
+            {currentUser ? (
               <div className="flex items-center gap-2">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
                   <User className="w-3.5 h-3.5 text-slate-500" />
@@ -167,6 +167,14 @@ export function Header({
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
+            ) : (
+              <a
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </a>
             )}
           </div>
         </div>

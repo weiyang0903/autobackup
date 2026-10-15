@@ -125,10 +125,13 @@ sequenceDiagram
    - 比较过程采用 `crypto.timingSafeEqual`，抵御时序攻击。
 2. **根管理员保底机制 (Root Admin Immunity)**：
    - 内置用户名 `admin` 拥有永久管理员保障，无法被更改角色、无法被禁用、无法被删除，防止误操作导致所有人员被锁在系统外部。
-3. **会话安全规则**：
+3. **会话安全规则与纵深防御机制 (Multi-Layer Defense & Session Security)**：
    - Cookie 启用 `HttpOnly`（JavaScript 脚本不可读，防 XSS 窃取）；
    - Cookie 启用 `SameSite=Lax` 与 `Path=/`，防范 CSRF 跨站伪造；
-   - 会话 Token 包含 HMAC-SHA256 服务端签名，篡改任何载荷将导致签名校验失败并失效。
+   - 会话 Token 包含 HMAC-SHA256 服务端签名，篡改任何载荷将导致签名校验失败并失效；
+   - **Edge 中间件校验 (L1 防线)**：在 Next.js Edge Middleware 中原生验证 HMAC 签名与过期时间戳，拦截非法请求并重定向至 `/login`，同时主动下发清空指令清除损坏的 Cookie；
+   - **服务端实体与激活状态核验 (L2 防线 - `verifyAuthenticatedUser`)**：所有业务 API（数据库、调度、历史、手动导出、系统状态、用户管理）均严格校验 Token 中 `userId` 是否真实存在于 `data/users.json` 且状态处于 `active === true`。如遇账号被注销、禁用或数据重置，API 统一返回 401 并立即通过 `Set-Cookie` 清除浏览器旧 Cookie，根除“幽灵孤儿会话”；
+   - **前端认证守卫与 401 联动重定向 (L3 防线)**：控制台首页在初始加载时先行核验 `/api/auth/me`，未通过认证前展示认证检查过渡态，防止未经认证或孤儿会话状态下渲染操作看板；任一接口响应 401 时前端均立即中断并重定向至 `/login`。
 4. **审计与操作者追踪**：
    - 所有由用户界面手动触发的备份任务，均会在备份历史记录中写入 `triggeredBy` 属性；
    - 定时任务自动调度触发的备份，记录来源为定时规则名称。

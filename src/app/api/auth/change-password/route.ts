@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, verifyPassword, hashPassword } from "@/lib/auth";
-import { getUserById, getUsers, saveUsers } from "@/lib/storage";
+import { verifyAuthenticatedUser, verifyPassword, hashPassword } from "@/lib/auth";
+import { getUsers, saveUsers } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("autobackup_session")?.value;
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Not authenticated" },
-        { status: 401 }
-      );
+    const auth = verifyAuthenticatedUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
     }
-
-    const payload = verifySessionToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Session expired or invalid" },
-        { status: 401 }
-      );
-    }
+    const user = auth.user;
 
     const body = await req.json();
     const { oldPassword, newPassword } = body;
@@ -37,14 +27,6 @@ export async function POST(req: NextRequest) {
           error: "New password must be at least 6 characters long",
         },
         { status: 400 }
-      );
-    }
-
-    const user = getUserById(payload.userId);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 }
       );
     }
 

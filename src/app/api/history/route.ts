@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { getHistory, deleteHistoryItem } from "@/lib/storage";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 /**
  * 递归向上检查并删除空的父级文件夹，直到遇到非空目录或到达备份根目录
@@ -32,7 +33,10 @@ function cleanEmptyParentDirectories(currentDir: string, stopRootDir: string): v
 }
 
 // 获取备份历史记录
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const history = getHistory();
     return NextResponse.json({ success: true, history });
@@ -47,14 +51,16 @@ export async function GET() {
 
 // 删除备份历史（并根据参数决定是否清理物理文件或目录及空父目录）
 export async function DELETE(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated || !auth.user) return auth.response!;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const deletePhysicalFile = searchParams.get("deleteFile") === "true";
 
     // 权限校验：仅允许超级管理员 (Admin) 执行删除历史记录与物理文件
-    const userRole = req.headers.get("x-user-role");
-    if (userRole && userRole !== "admin") {
+    if (auth.user.role !== "admin") {
       return NextResponse.json(
         {
           success: false,

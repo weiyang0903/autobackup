@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeBackup } from "@/lib/dump";
 import { ManualBackupRequest } from "@/types";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated || !auth.user) return auth.response!;
+
   try {
     const body = (await req.json()) as ManualBackupRequest;
 
@@ -13,7 +17,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const triggeredBy = req.headers.get("x-user-name") || "manual";
+    const triggeredBy = auth.user.username || req.headers.get("x-user-name") || "manual";
 
     const result = await executeBackup({
       databases: body.databases,

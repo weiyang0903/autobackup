@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { verifyAuthenticatedUser } from "@/lib/auth";
 
 /**
  * 探测 Windows 系统上所有可访问的驱动器盘符 (C:\, D:\, etc.)
@@ -23,6 +24,9 @@ function getAvailableDrives(): string[] {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = verifyAuthenticatedUser(req);
+  if (!auth.authenticated) return auth.response!;
+
   try {
     const { searchParams } = new URL(req.url);
     const requestedPath = searchParams.get("path");
