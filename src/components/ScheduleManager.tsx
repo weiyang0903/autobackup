@@ -11,6 +11,7 @@ import {
   FolderPlus,
   Folder,
   FolderOpen,
+  Pencil,
 } from "lucide-react";
 import { ScheduleItem, ScheduleFrequencyType } from "@/types";
 import { DirectoryPickerModal } from "./DirectoryPickerModal";
@@ -68,7 +69,8 @@ export function ScheduleManager({
 }: ScheduleManagerProps) {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // 表单状态
   const [name, setName] = useState("");
@@ -177,8 +179,46 @@ export function ScheduleManager({
     }
   };
 
-  // 提交新建调度
-  const handleCreateSchedule = async (e: React.FormEvent) => {
+  // 重置表单状态并关闭表单
+  const resetForm = () => {
+    setName("");
+    setSelectedDbs([]);
+    setSourceFolders([]);
+    setFolderInput("");
+    setFrequencyType("hourly");
+    setTimesList([]);
+    setCurrentTimeInput("09:00");
+    setSelectedWeekDays([]);
+    setBackupDir("");
+    setFormError(null);
+    setEditingId(null);
+    setIsFormOpen(false);
+  };
+
+  // 点击新建调度按钮
+  const handleOpenCreate = () => {
+    resetForm();
+    setIsFormOpen(true);
+  };
+
+  // 点击编辑调度按钮
+  const handleStartEdit = (item: ScheduleItem) => {
+    setEditingId(item.id);
+    setName(item.name);
+    setSelectedDbs(item.databases ? [...item.databases] : []);
+    setSourceFolders(item.sourceFolders ? [...item.sourceFolders] : []);
+    setFolderInput("");
+    setFrequencyType(item.frequencyType || "hourly");
+    setTimesList(item.times ? [...item.times] : []);
+    setCurrentTimeInput("09:00");
+    setSelectedWeekDays(item.weekDays ? [...item.weekDays] : []);
+    setBackupDir(item.backupDir || "");
+    setFormError(null);
+    setIsFormOpen(true);
+  };
+
+  // 提交新建或编辑调度
+  const handleSubmitSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -207,35 +247,38 @@ export function ScheduleManager({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/schedules", {
-        method: "POST",
+      const isEditing = Boolean(editingId);
+      const url = "/api/schedules";
+      const method = isEditing ? "PUT" : "POST";
+
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        databases: selectedDbs,
+        sourceFolders: sourceFolders.length > 0 ? sourceFolders : [],
+        frequencyType,
+        times: frequencyType !== "hourly" ? timesList : undefined,
+        weekDays: frequencyType === "weekly" ? selectedWeekDays : undefined,
+        backupDir: backupDir.trim() || defaultBackupDir,
+      };
+
+      if (isEditing) {
+        payload.id = editingId;
+      } else {
+        payload.enabled = true;
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          databases: selectedDbs,
-          sourceFolders: sourceFolders.length > 0 ? sourceFolders : undefined,
-          frequencyType,
-          times: frequencyType !== "hourly" ? timesList : undefined,
-          weekDays: frequencyType === "weekly" ? selectedWeekDays : undefined,
-          backupDir: backupDir.trim() || defaultBackupDir,
-          enabled: true,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (data.success) {
-        setIsCreating(false);
-        setName("");
-        setSelectedDbs([]);
-        setSourceFolders([]);
-        setFolderInput("");
-        setFrequencyType("hourly");
-        setTimesList([]);
-        setSelectedWeekDays([]);
-        setBackupDir("");
+        resetForm();
         fetchSchedules();
       } else {
-        setFormError(data.error || "Failed to create schedule");
+        setFormError(data.error || `Failed to ${isEditing ? "update" : "create"} schedule`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -298,9 +341,9 @@ export function ScheduleManager({
           </p>
         </div>
 
-        {!isCreating && (
+        {!isFormOpen && (
           <button
-            onClick={() => setIsCreating(true)}
+            onClick={handleOpenCreate}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -309,20 +352,29 @@ export function ScheduleManager({
         )}
       </div>
 
-      {/* Create Schedule Modal / Form */}
-      {isCreating && (
+      {/* Create / Edit Schedule Form */}
+      {isFormOpen && (
         <form
-          onSubmit={handleCreateSchedule}
+          onSubmit={handleSubmitSchedule}
           className="mb-5 p-5 bg-purple-50/40 border border-purple-200 rounded-xl space-y-4"
         >
           <div className="flex items-center justify-between border-b border-purple-100 pb-2.5">
             <h3 className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-purple-600" />
-              Configure New Backup Schedule
+              {editingId ? (
+                <>
+                  <Pencil className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Edit Backup Schedule</span>
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Configure New Backup Schedule</span>
+                </>
+              )}
             </h3>
             <button
               type="button"
-              onClick={() => setIsCreating(false)}
+              onClick={resetForm}
               className="text-slate-400 hover:text-slate-600 text-xs font-medium"
             >
               Cancel
@@ -620,7 +672,7 @@ export function ScheduleManager({
           <div className="flex justify-end gap-2 pt-2 border-t border-purple-100">
             <button
               type="button"
-              onClick={() => setIsCreating(false)}
+              onClick={resetForm}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium"
             >
               Cancel
@@ -630,7 +682,11 @@ export function ScheduleManager({
               disabled={submitting}
               className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
             >
-              {submitting ? "Saving..." : "Save Schedule"}
+              {submitting
+                ? "Saving..."
+                : editingId
+                ? "Update Schedule"
+                : "Save Schedule"}
             </button>
           </div>
         </form>
@@ -650,7 +706,11 @@ export function ScheduleManager({
           {schedules.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-lg gap-3"
+              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg gap-3 border transition-all ${
+                editingId === item.id
+                  ? "bg-purple-50/60 border-purple-300 ring-2 ring-purple-300"
+                  : "bg-slate-50 border-slate-200"
+              }`}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -705,6 +765,20 @@ export function ScheduleManager({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleStartEdit(item)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 border transition-colors ${
+                    editingId === item.id
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                  title="Edit Schedule"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>{editingId === item.id ? "Editing" : "Edit"}</span>
+                </button>
+
                 <button
                   onClick={() => handleToggleEnable(item.id, item.enabled)}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 border transition-colors ${

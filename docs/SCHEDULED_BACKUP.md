@@ -6,7 +6,7 @@
 
 ## 1. 功能概述
 
-系统提供全可视化的定时备份调度能力。已登录的管理员（Admin）与操作员（Operator）均拥有调度规则的完整管理权限，可以自由查看、创建、编辑启停状态与删除定时规则。用户不仅可以选择需要定时备份的 MySQL 数据库，还可以配置一个或多个**磁盘源文件夹路径（Source Folders）**（例如项目的 `uploads/`、用户资料目录或资产文件夹）。系统在到达设定周期时，将自动调用 `mysqldump` 导出数据库，并递归复制选中的源文件夹至深度归档目录中。定时任务由服务端后台引擎自动触发，在审计历史中触发源记录为该规则的名称。
+系统提供全可视化的定时备份调度能力。已登录的管理员（Admin）与操作员（Operator）均拥有调度规则的完整管理权限，可以自由查看、创建、**全量编辑修改**、启停切换（Pause/Resume）与删除定时规则。用户不仅可以选择需要定时备份的 MySQL 数据库，还可以配置一个或多个**磁盘源文件夹路径（Source Folders）**（例如项目的 `uploads/`、用户资料目录或资产文件夹）。系统在到达设定周期时，将自动调用 `mysqldump` 导出数据库，并递归复制选中的源文件夹至深度归档目录中。定时任务由服务端后台引擎自动触发，在审计历史中触发源记录为该规则的名称。
 
 ---
 
@@ -44,27 +44,42 @@ backups/ (备份根目录)
 6. **指定输出目录（可选）**：留空使用默认目录，或填入自定义路径；
 7. 点击 **"Save Schedule"** 提交保存，后台即刻启动监听。
 
+### 3.2 编辑修改已有调度规则 (Edit Schedule)
+1. 在规则列表中，找到需要调整的定时备份项，点击操作列的 **"Edit"**（铅笔图标）按钮；
+2. 系统自动展开编辑配置面板，并带有紫色高亮激活状态，自动回填当前规则的所有配置数据：
+   - 规则名称（Schedule Name）；
+   - 已选定的数据库（可增删勾选）；
+   - 已配置的源文件夹列表（可继续输入、弹窗点选或点击 ✕ 移除）；
+   - 调度周期类型（Hourly / Daily / Weekly）及对应的时间点列表与星期选项；
+   - 自定义备份输出路径；
+3. 对需要调整的字段进行修改，点击 **"Update Schedule"** 提交更新；
+4. 服务端接收请求并执行二次校验，重新编译标准 Cron 表达式数组并持久化至 `data/schedules.json`，同时在内存中热重启该规则的 `node-cron` 定时任务，无需重启 Node.js 进程；
+5. 若需要放弃本次修改，点击表单右上角或底部的 **"Cancel"** 按钮即可还原并退出编辑模式。
+
 ---
 
 ## 4. 详细工作流程 (Workflow)
 
 ```mermaid
 flowchart TD
-    A[用户配置: Name / 数据库 / 源文件夹列表 / 频率 / 时间 / 星期] --> B[前端表单校验: 必填项 / 至少选择库或文件夹之一 / 路径格式]
-    B -- 校验通过 --> C[POST /api/schedules]
-    C --> D[服务端二次数据校验: 文件夹真实存在性 / 读权限 / 防自包含死循环]
-    D --> E[compileScheduleToCrons 编译为标准 Cron 数组]
+    A[用户操作: 点击 New Schedule 或 Edit 按钮] --> B[配置面板: 回填或录入 Name / 数据库 / 源文件夹 / 周期]
+    B --> C[前端表单校验: 必填项 / 至少选择库或文件夹之一 / 时间与星期有效性]
+    C -- 校验通过 --> D{操作类型}
+    D -- 新建 -- --> E[POST /api/schedules]
+    D -- 编辑修改 -- --> F[PUT /api/schedules]
+    E & F --> G[服务端二次数据校验: 文件夹真实存在性 / 读权限 / 防自包含死循环]
+    G --> H[compileScheduleToCrons 编译为标准 Cron 表达式数组]
     
-    E --> G[写入 data/schedules.json 持久化]
-    G --> H[调度引擎 registerCronTask 注册活动定时器]
+    H --> I[写入 data/schedules.json 原子持久化]
+    I --> J[调度引擎 syncScheduleTask: 销毁旧任务并在内存中注册新定时器]
     
-    H --> I{到达设定触发时间}
-    I --> J[构建 scheduleName_id / YYYY-MM-DD / HH_mm_ss 深度路径]
-    J --> K1[循环为各数据库独立调用 mysqldump 生成各自独立的 .sql 文件]
-    J --> K2[调用 fs.cpSync 递归复制源文件夹到该子目录]
-    K1 & K2 --> L[统计 SQL 与文件夹总体积 & 写入 data/history.json 审计日志]
-    L --> M[更新规则上次执行时间 Last run 并持久化至 data/schedules.json]
-    M --> N[前端 5 秒后台静默轮询自动捕获最新历史与 Last run 时间并即时渲染]
+    J --> K{到达设定触发时间}
+    K --> L[构建 scheduleName_id / YYYY-MM-DD / HH_mm_ss 深度路径]
+    L --> M1[循环为各数据库独立调用 mysqldump 生成各自独立的 .sql 文件]
+    L --> M2[调用 fs.cpSync 递归复制源文件夹到该子目录]
+    M1 & M2 --> N[统计总体积 & 写入 data/history.json 审计日志]
+    N --> O[更新规则上次执行时间 Last run 并持久化]
+    O --> P[前端 5 秒后台静默轮询自动捕获最新数据并即时渲染]
 ```
 
 ---
@@ -86,8 +101,11 @@ flowchart TD
 
 | 异常情况 | 触发原因 | 处理策略 |
 | :--- | :--- | :--- |
+| **规则不存在** | 编辑或删除时传入了不存在的 `id` | 接口返回 HTTP 404 与错误提示："Schedule rule not found"。 |
+| **规则名称为空** | 创建或编辑时清空了规则名称 | 前后端拦截并提示："Schedule name is required"。 |
 | **源文件夹不存在或为普通文件** | 输入了错误的路径或误选了文件 | 前后端在校验阶段直接拦截并给出具体路径错误提示，阻止保存。 |
 | **源文件夹包含备份目标目录** | 用户配置将 `backups` 复制进 `backups` | 触发自包含拦截："Cannot backup the backup destination directory itself"。 |
+| **未选库且未选文件夹** | 取消了所有数据库勾选并删光了源文件夹 | 拦截并提示："Please select at least one database or one source folder to back up."。 |
 | **执行时 MySQL 临时离线** | 仅备份数据库时 MySQL 未启动 | 捕获连接错误，记录失败日志；若同时配置了文件夹备份，仍会保证文件夹正常复制完成。 |
 
 ---
@@ -114,8 +132,28 @@ flowchart TD
   ```
 
 ### 7.3 `PUT /api/schedules`
-- **说明**：更新现有调度规则（如启停切换、修改时间、增减目标库/文件夹）。
-- **请求载荷**：包含目标规则 `id` 及需修改的字段（如 `{"id": "sched_xxx", "enabled": false}`）。
+- **说明**：更新现有调度规则（支持全量配置编辑修改，或轻量启停状态切换）。
+- **完整编辑请求载荷示例**：
+  ```json
+  {
+    "id": "sched_1792025091618_f9gjh",
+    "name": "Updated Daily Core DB & Uploads Backup",
+    "databases": ["petty_cash_claim", "semipack_traceability"],
+    "sourceFolders": ["C:\\xampp\\htdocs\\uploads"],
+    "frequencyType": "weekly",
+    "weekDays": [1, 3, 5],
+    "times": ["09:00", "18:00"],
+    "backupDir": "C:\\xampp\\htdocs\\autobackup\\backups"
+  }
+  ```
+- **轻量状态切换载荷示例**：
+  ```json
+  {
+    "id": "sched_1792025091618_f9gjh",
+    "enabled": false
+  }
+  ```
+- **成功响应**（HTTP 200）：返回 `{ "success": true, "schedule": <更新后的规则对象> }`，并在内存中自动热重载活动的 Cron 任务。
 
 ### 7.4 `DELETE /api/schedules?id={id}`
 - **说明**：删除指定的调度规则，并从内存调度引擎中注销对应的活动定时任务。

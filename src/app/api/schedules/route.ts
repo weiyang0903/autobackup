@@ -247,26 +247,176 @@ export async function PUT(req: NextRequest) {
 
     const current = list[targetIndex];
 
-    if (name) current.name = name.trim();
-    if (Array.isArray(databases)) current.databases = databases;
-    if (Array.isArray(sourceFolders)) current.sourceFolders = sourceFolders;
-
-    if (frequencyType) {
-      current.frequencyType = frequencyType;
-      if (weekDays) current.weekDays = weekDays;
-      if (times) current.times = times;
-
-      current.cronExpressions = compileScheduleToCrons({
-        frequencyType: current.frequencyType,
-        weekDays: current.weekDays,
-        times: current.times,
-      });
-      current.cronExpression = current.cronExpressions[0];
+    // 1. 若传递了 name，进行非空校验
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim() === "") {
+        return NextResponse.json(
+          { success: false, error: "Schedule name is required" },
+          { status: 400 }
+        );
+      }
+      current.name = name.trim();
     }
 
-    if (backupDir) {
-      const v = resolveAndValidateBackupDir(backupDir);
-      if (v.isValid) current.backupDir = v.resolvedPath;
+    // 2. 目标数据库与备份目录校验
+    let resolvedBackupPath = current.backupDir;
+    if (backupDir !== undefined) {
+      const targetDir =
+        backupDir || process.env.DEFAULT_BACKUP_DIR || "./backups";
+      const dirValidation = resolveAndValidateBackupDir(targetDir);
+      if (!dirValidation.isValid) {
+        return NextResponse.json(
+          { success: false, error: dirValidation.error },
+          { status: 400 }
+        );
+      }
+      resolvedBackupPath = dirValidation.resolvedPath;
+      current.backupDir = resolvedBackupPath;
+    }
+
+    // 3. 校验数据库与源文件夹组合
+    const updatedDatabases =
+      databases !== undefined ? databases : current.databases;
+    const updatedSourceFolders =
+      sourceFolders !== undefined ? sourceFolders : current.sourceFolders || [];
+
+    const hasDatabases =
+      Array.isArray(updatedDatabases) && updatedDatabases.length > 0;
+    const hasFolders =
+      Array.isArray(updatedSourceFolders) && updatedSourceFolders.length > 0;
+
+    if (databases !== undefined || sourceFolders !== undefined) {
+      if (!hasDatabases && !hasFolders) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Please select at least one database or one source folder to back up.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (databases !== undefined && hasDatabases) {
+      for (const db of updatedDatabases) {
+        if (!isValidDatabaseName(db)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid database name: ${db}` },
+            { status: 400 }
+          );
+        }
+      }
+      current.databases = updatedDatabases;
+    } else if (databases !== undefined) {
+      current.databases = [];
+    }
+
+    if (sourceFolders !== undefined) {
+      const validSourceFolders: string[] = [];
+      if (hasFolders) {
+        for (const folder of updatedSourceFolders) {
+          const fv = validateSourceFolder(folder, resolvedBackupPath);
+          if (!fv.isValid) {
+            return NextResponse.json(
+              { success: false, error: fv.error },
+              { status: 400 }
+            );
+          }
+          validSourceFolders.push(fv.resolvedPath);
+        }
+      }
+      current.sourceFolders =
+        validSourceFolders.length > 0 ? validSourceFolders : undefined;
+    }
+
+    // 4. 频率与周期配置更新与编译
+    if (frequencyType !== undefined) {
+      const validFreqs: ScheduleFrequencyType[] = [
+        "hourly",
+        "daily",
+        "weekly",
+      ];
+      const targetFreq: ScheduleFrequencyType = validFreqs.includes(
+        frequencyType
+      )
+        ? frequencyType
+        : current.frequencyType;
+
+      let targetTimes = times !== undefined ? times : current.times || ["00:00"];
+      if (targetFreq === "daily" || targetFreq === "weekly") {
+        if (!targetTimes || !Array.isArray(targetTimes) || targetTimes.length === 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Please provide at least one backup time (HH:mm)",
+            },
+            { status: 400 }
+          );
+        }
+        for (const t of targetTimes) {
+          if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(t)) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Invalid time format: ${t}. Expected HH:mm`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+        targetTimes = Array.from(new Set(targetTimes));
+      }
+
+      let targetWeekDays =
+        weekDays !== undefined ? weekDays : current.weekDays || [0];
+      if (targetFreq === "weekly") {
+        if (!targetWeekDays || !Array.isArray(targetWeekDays) || targetWeekDays.length === 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Please select at least one day of the week for weekly backup",
+            },
+            { status: 400 }
+          );
+        }
+        for (const d of targetWeekDays) {
+          if (typeof d !== "number" || d < 0 || d > 6) {
+            return NextResponse.json(
+              { success: false, error: `Invalid day of week: ${d}` },
+              { status: 400 }
+            );
+          }
+        }
+        targetWeekDays = Array.from(new Set(targetWeekDays)).sort(
+          (a, b) => a - b
+        );
+      }
+
+      const cronExpressions = compileScheduleToCrons({
+        frequencyType: targetFreq,
+        weekDays: targetFreq === "weekly" ? targetWeekDays : undefined,
+        times: targetFreq !== "hourly" ? targetTimes : undefined,
+      });
+
+      for (const expr of cronExpressions) {
+        if (!validateCronExpression(expr)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Compiled cron expression is invalid: ${expr}`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      current.frequencyType = targetFreq;
+      current.times = targetFreq !== "hourly" ? targetTimes : undefined;
+      current.weekDays = targetFreq === "weekly" ? targetWeekDays : undefined;
+      current.cronExpressions = cronExpressions;
+      current.cronExpression = cronExpressions[0];
     }
 
     if (typeof enabled === "boolean") {
