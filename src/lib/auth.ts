@@ -150,7 +150,7 @@ export function ensureInitialAdmin(): UserItem {
   const { hash, salt } = hashPassword(initialPassword);
 
   const newAdmin: UserItem = {
-    id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+    id: "u_init_admin_001",
     username: initialUsername,
     passwordHash: hash,
     salt: salt,

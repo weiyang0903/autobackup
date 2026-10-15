@@ -39,23 +39,11 @@ function atomicWriteJson<T>(filePath: string, data: T): void {
 }
 
 /**
- * 安全读取 JSON 文件
+ * 安全读取 JSON 文件（若文件不存在则原子写入干净的默认值，绝不从 .example 盲目拷贝示例数据）
  */
 function safeReadJson<T>(filePath: string, defaultValue: T): T {
   ensureDataDir();
   if (!fs.existsSync(filePath)) {
-    // 若实际文件不存在，尝试从 .example 读取或返回默认值
-    const exampleFile = `${filePath}.example`;
-    if (fs.existsSync(exampleFile)) {
-      try {
-        const content = fs.readFileSync(exampleFile, "utf-8");
-        const parsed = JSON.parse(content);
-        atomicWriteJson(filePath, parsed);
-        return parsed;
-      } catch {
-        return defaultValue;
-      }
-    }
     atomicWriteJson(filePath, defaultValue);
     return defaultValue;
   }
