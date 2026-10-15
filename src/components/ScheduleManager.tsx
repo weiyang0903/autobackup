@@ -10,8 +10,10 @@ import {
   Sparkles,
   FolderPlus,
   Folder,
+  FolderOpen,
 } from "lucide-react";
 import { ScheduleItem, ScheduleFrequencyType } from "@/types";
+import { DirectoryPickerModal } from "./DirectoryPickerModal";
 
 interface ScheduleManagerProps {
   availableDatabases: string[];
@@ -86,6 +88,7 @@ export function ScheduleManager({
   const [backupDir, setBackupDir] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   // 加载调度列表 (支持 silent 静默刷新，不触发骨架加载状态)
   const fetchSchedules = async (silent = false) => {
@@ -113,16 +116,32 @@ export function ScheduleManager({
     }
   }, [refreshTrigger]);
 
-  // 添加源文件夹
-  const handleAddFolder = () => {
+  // 添加或浏览源文件夹
+  const handleAddFolderClick = () => {
     const trimmed = folderInput.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      // 若输入框为空，点击直接打开选择文件夹弹窗
+      setIsPickerOpen(true);
+      return;
+    }
     if (sourceFolders.includes(trimmed)) {
       setFormError(`Folder path "${trimmed}" is already added.`);
       return;
     }
     setFormError(null);
     setSourceFolders([...sourceFolders, trimmed]);
+    setFolderInput("");
+  };
+
+  // 从弹窗选择器中选定文件夹
+  const handleDirectorySelected = (chosenPath: string) => {
+    if (!chosenPath) return;
+    if (sourceFolders.includes(chosenPath)) {
+      setFormError(`Folder path "${chosenPath}" is already added.`);
+      return;
+    }
+    setFormError(null);
+    setSourceFolders([...sourceFolders, chosenPath]);
     setFolderInput("");
   };
 
@@ -370,25 +389,36 @@ export function ScheduleManager({
               Source Folders to Backup (One or multiple directories)
             </label>
             <div className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                placeholder="e.g. C:\xampp\htdocs\my_project\uploads or ./storage"
-                value={folderInput}
-                onChange={(e) => setFolderInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddFolder();
-                  }
-                }}
-                className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="e.g. C:\xampp\htdocs\my_project\uploads or click to browse"
+                  value={folderInput}
+                  onChange={(e) => setFolderInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddFolderClick();
+                    }
+                  }}
+                  className="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPickerOpen(true)}
+                  className="absolute right-2 top-1.5 p-1 text-slate-400 hover:text-purple-600 transition-colors"
+                  title="Browse local folders"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={handleAddFolder}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors shrink-0"
+                onClick={handleAddFolderClick}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5"
               >
-                + Add Folder
+                <FolderPlus className="w-3.5 h-3.5" />
+                {folderInput.trim() ? "Add Folder" : "Browse / Add Folder"}
               </button>
             </div>
 
@@ -700,6 +730,14 @@ export function ScheduleManager({
           ))}
         </div>
       )}
+
+      {/* 文件夹可视化目录选择器弹窗 */}
+      <DirectoryPickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelect={handleDirectorySelected}
+        initialPath={folderInput.trim() || undefined}
+      />
     </div>
   );
 }
