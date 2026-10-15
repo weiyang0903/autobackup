@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-10-15 - 服务端监听端口调整为 3003
+
+### 修改
+- 将 Web 控制台服务默认监听端口从 3000 调整为 3003：同步更新 `package.json` 中的 `dev` 与 `start` 脚本命令（增加 `-p 3003`），更新 `.env` 与 `.env.example` 中的 `PORT=3003` 配置。
+- 全面更新 `README.md`、`docs/DEPLOYMENT.md`、`docs/ENV_CONFIGURATION.md` 与 `docs/AUTHENTICATION_AND_USER_MANAGEMENT.md` 中所有涉及端口的访问链接、配置字典及故障排查说明。
+
 ## 2026-10-15 - 定时备份源文件夹支持可视化目录树浏览选择
 
 ### 新增

@@ -20,7 +20,7 @@
 | `DB_PASSWORD` | *(留空)* | 否 | MySQL 用户密码。XAMPP 默认安装时 root 密码为空。 |
 | `MYSQLDUMP_PATH` | `C:\xampp\mysql\bin\mysqldump.exe` | 是 | XAMPP 原生提供的 `mysqldump` 可执行文件绝对路径。 |
 | `DEFAULT_BACKUP_DIR` | `./backups` | 是 | 默认备份文件存放目录。支持相对路径或系统绝对路径（如 `D:\backups`）。 |
-| `PORT` | `3000` | 否 | Web 控制台服务端监听端口。 |
+| `PORT` | `3003` | 否 | Web 控制台服务端监听端口。 |
 | `SESSION_SECRET` | 随机默认密钥 | 否 | 会话签名密钥（至少 32 字符），用于 HMAC-SHA256 签名校验。建议生产环境单独指定。 |
 | `INITIAL_ADMIN_PASSWORD` | `admin123` | 否 | 首次初始化创建 `admin` 账号时的初始密码（若已有 `data/users.json` 则忽略）。 |
 

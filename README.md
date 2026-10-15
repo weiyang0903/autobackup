@@ -30,14 +30,14 @@ copy .env.example .env
 npm install
 npm run dev
 ```
-打开浏览器访问：`http://localhost:3000`（系统自动跳转至登录页 `/login`，默认账号密码：`admin / admin123`）。
+打开浏览器访问：`http://localhost:3003`（系统自动跳转至登录页 `/login`，默认账号密码：`admin / admin123`）。
 
 ### 3. 生产模式 (Production)
 ```cmd
 npm run build
 npm run start
 ```
-打开浏览器访问：`http://localhost:3000`（默认管理员凭据：`admin / admin123`）。
+打开浏览器访问：`http://localhost:3003`（默认管理员凭据：`admin / admin123`）。
 
 ---
 

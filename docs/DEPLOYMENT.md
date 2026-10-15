@@ -34,7 +34,7 @@
    DB_PASSWORD=
    MYSQLDUMP_PATH=C:\xampp\mysql\bin\mysqldump.exe
    DEFAULT_BACKUP_DIR=./backups
-   PORT=3000
+   PORT=3003
 
    # 可选安全与认证配置（推荐正式环境配置）
    # SESSION_SECRET=your-custom-secret-key-at-least-32-chars
@@ -71,7 +71,7 @@ npm run dev
 ```
 
 ### 访问方式：
-- 打开浏览器访问：`http://localhost:3000`
+- 打开浏览器访问：`http://localhost:3003`
 - 系统将自动重定向至登录页（`/login`）。初次部署登录默认凭据为：
   - **Username**：`admin`
   - **Password**：`admin123`（若在 `.env` 中指定了 `INITIAL_ADMIN_PASSWORD`，则为您自定义的初始密码）
@@ -95,10 +95,10 @@ npm run build
 ```cmd
 npm run start
 ```
-- 服务将常驻运行在指定的端口（默认 `3000` 端口）。
+- 服务将常驻运行在指定的端口（默认 `3003` 端口）。
 
 ### 访问方式：
-- 打开浏览器访问：`http://localhost:3000`
+- 打开浏览器访问：`http://localhost:3003`
 - 系统将自动重定向至登录页面（`/login`）。初次部署登录默认管理员凭据为：
   - **Username**：`admin`
   - **Password**：`admin123`（若在 `.env` 中指定了 `INITIAL_ADMIN_PASSWORD`，则为您自定义的初始密码）
@@ -121,5 +121,5 @@ npm run start
    - 检查 `.env` 中的 `DB_PORT` 是否与 XAMPP MySQL 端口一致（默认 `3306`）。
 2. **页面提示 mysqldump Tool Missing**：
    - 检查 `.env` 中的 `MYSQLDUMP_PATH` 路径是否正确指向存在的 `mysqldump.exe`。
-3. **端口被占用 (Port 3000 in use)**：
-   - 可在 `.env` 中修改 `PORT=3001`，或使用 `npm run dev -- -p 3001` 指定端口启动。
+3. **端口被占用 (Port 3003 in use)**：
+   - 可在 `.env` 中修改 `PORT=3004`，或使用 `npm run dev -- -p 3004` 指定端口启动。

@@ -46,7 +46,7 @@ sequenceDiagram
     participant Storage as data/users.json
     participant Page as 控制台首页 (/)
 
-    User->>MW: 访问受保护页面 (http://localhost:3000/)
+    User->>MW: 访问受保护页面 (http://localhost:3003/)
     MW->>MW: 检查 Cookie (autobackup_session)
     alt 未提供有效 Token
         MW-->>User: 重定向至 /login 登录页
@@ -96,7 +96,7 @@ sequenceDiagram
 
 ### 4.1 初次部署与首次登录
 1. 启动服务：`npm run dev` 或 `npm run start`；
-2. 打开浏览器访问：`http://localhost:3000`，系统将自动跳转至 `/login`；
+2. 打开浏览器访问：`http://localhost:3003`，系统将自动跳转至 `/login`；
 3. 输入初始凭证：
    - **Username**：`admin`
    - **Password**：`admin123`（或在 `.env` 中通过 `INITIAL_ADMIN_PASSWORD` 自定义的初始密码）；
