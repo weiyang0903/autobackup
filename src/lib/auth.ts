@@ -7,6 +7,8 @@ const SESSION_SECRET =
   process.env.SESSION_SECRET || "autobackup_secure_session_secret_key_2026";
 const SESSION_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 天有效期
 
+export const isCookieSecure = () => process.env.COOKIE_SECURE === "true";
+
 /**
  * 为明文密码生成 Salt 和安全哈希 (使用 Node.js 原生 scrypt 算法)
  */
@@ -208,6 +210,7 @@ export function verifyAuthenticatedUser(req: NextRequest): {
       sameSite: "lax",
       path: "/",
       maxAge: 0,
+      secure: isCookieSecure(),
     });
     return { authenticated: false, response: res };
   }
@@ -225,6 +228,7 @@ export function verifyAuthenticatedUser(req: NextRequest): {
       sameSite: "lax",
       path: "/",
       maxAge: 0,
+      secure: isCookieSecure(),
     });
     return { authenticated: false, response: res };
   }

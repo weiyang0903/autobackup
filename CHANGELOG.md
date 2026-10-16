@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-10-16 - 自动化调度启动机制与时区支持优化
+
+### 新增
+- 新增 `src/instrumentation.ts` 接入 Next.js `register()` 启动钩子，在 Node.js 服务端启动阶段自动唤醒定时调度引擎 `initScheduler()`。
+- 定时任务调度器新增 `BACKUP_TIMEZONE` 环境变量支持，支持自定义设定任务执行的时区。
+
+### 修改
+- `src/lib/scheduler.ts` 新增初始化幂等防重守卫，防止服务热重载或并发调用时重复注册定时器。
+- 更新 `docs/SCHEDULED_BACKUP.md` 与 `docs/ENV_CONFIGURATION.md`，同步启动生命周期与时区配置说明。
+
+## 2026-10-16 - 修复数据库导出流异常处理与文件锁竞争缺陷
+
+### 修改
+- 修复 `src/lib/dump.ts` 中 `writeStream` 缺少 `error` 事件监听可能引发未捕获异常导致服务退出的隐患。
+- 修复 Windows 环境下导出进程退出与文件流关闭不同步导致 `fs.renameSync` 触发 `EBUSY` 文件锁占用错误，实现进程与文件流双重同步关闭。
+
+## 2026-10-16 - 修复历史备份删除空父目录边界与路径匹配缺陷
+
+### 修改
+- 修复 `src/app/api/history/route.ts` 递归清理空父目录时硬编码根目录的问题，改为基于备份记录的 `targetDirectory` 动态推导边界，全面支持自定义备份存储路径。
+- 优化父目录清理的路径比较逻辑，在 Windows 环境下采用不区分大小写的标准化路径比对，杜绝越界误删。
+- 更新 `docs/BACKUP_HISTORY_MANAGEMENT.md` 联动清理边界说明。
+
+## 2026-10-16 - 落地生效目录白名单与会话传输安全环境变量
+
+### 新增
+- `src/lib/validation.ts` 新增 `ALLOWED_BACKUP_ROOTS` 与 `ALLOWED_SOURCE_ROOTS` 白名单路径校验函数，在接口层强制拦截非法路径。
+- `src/lib/auth.ts` 新增 `COOKIE_SECURE` 解析支持，允许灵活控制生产与局域网部署环境下的 Cookie Secure 传输策略。
+
+### 修改
+- 同步更新登录、登出接口与 `src/proxy.ts` 中间件的 Cookie 选项，统一接入安全传输控制逻辑。
+- 更新 `.env.example` 补全 4 个关键环境变量与注释，并同步更新 `docs/ENV_CONFIGURATION.md` 与 `docs/AUTHENTICATION_AND_USER_MANAGEMENT.md`。
+
 ## 2026-10-15 - 依赖安全升级并清零 npm 审计漏洞
 
 ### 修改

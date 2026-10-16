@@ -12,8 +12,11 @@ function cleanEmptyParentDirectories(currentDir: string, stopRootDir: string): v
     let dir = path.resolve(currentDir);
     const stopDir = path.resolve(stopRootDir);
 
-    // 只要当前目录不是备份根目录，且位于备份根目录内部
-    while (dir !== stopDir && dir.startsWith(stopDir)) {
+    // 只要当前目录不是备份根目录，且位于备份根目录内部 (Windows 路径不区分大小写)
+    while (
+      dir.toLowerCase() !== stopDir.toLowerCase() &&
+      dir.toLowerCase().startsWith(stopDir.toLowerCase())
+    ) {
       if (fs.existsSync(dir)) {
         const items = fs.readdirSync(dir);
         if (items.length === 0) {
@@ -86,7 +89,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const backupRootDir = path.resolve(
+    const defaultBackupRootDir = path.resolve(
       /* turbopackIgnore: true */ process.cwd(),
       process.env.DEFAULT_BACKUP_DIR || "./backups"
     );
@@ -94,6 +97,18 @@ export async function DELETE(req: NextRequest) {
     // 若要求删除物理磁盘文件/目录
     if (deletePhysicalFile) {
       let parentDirToClean = "";
+      let stopRootDir = defaultBackupRootDir;
+
+      if (removed.targetDirectory) {
+        const resolvedTarget = path.resolve(removed.targetDirectory);
+        if (removed.triggerType === "manual") {
+          // Immediate_Manual_Export/YYYY-MM-DD 结构，向上两层为备份根目录
+          stopRootDir = path.resolve(resolvedTarget, "..", "..");
+        } else {
+          // [schedule_id]/YYYY-MM-DD/HH_mm_ss 结构，向上三层为备份根目录
+          stopRootDir = path.resolve(resolvedTarget, "..", "..", "..");
+        }
+      }
 
       if (removed.triggerType === "manual") {
         // 1. 手动导出：仅删除属于该记录的 SQL 文件列表及复制的专属文件夹，不误删同日期目录下的其他手动备份
@@ -156,7 +171,7 @@ export async function DELETE(req: NextRequest) {
 
       // 3. 向上自动清理变为空文件夹的父目录（如日期目录和规则目录）
       if (parentDirToClean) {
-        cleanEmptyParentDirectories(parentDirToClean, backupRootDir);
+        cleanEmptyParentDirectories(parentDirToClean, stopRootDir);
       }
     }
 

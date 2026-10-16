@@ -248,11 +248,32 @@ function dumpSingleDatabase(options: {
   args.push("--routines", "--triggers", "--single-transaction", dbName);
 
   return new Promise<string>((resolve, reject) => {
+    let settled = false;
+
+    const cleanupTemp = () => {
+      if (fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch {}
+      }
+    };
+
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanupTemp();
+      reject(err);
+    };
+
     const writeStream = fs.createWriteStream(tempFilePath, {
       flags: "w",
       encoding: "utf-8",
     });
     let stderrOutput = "";
+
+    writeStream.on("error", (err) => {
+      fail(new Error(`Failed writing dump output for '${dbName}': ${err.message}`));
+    });
 
     const child = spawn(mysqldumpPath, args, {
       windowsHide: true,
@@ -266,41 +287,45 @@ function dumpSingleDatabase(options: {
     });
 
     child.on("error", (err) => {
-      writeStream.close();
-      if (fs.existsSync(tempFilePath)) {
-        try {
-          fs.unlinkSync(tempFilePath);
-        } catch {}
-      }
-      reject(new Error(`Failed to spawn mysqldump for '${dbName}': ${err.message}`));
+      writeStream.destroy();
+      fail(new Error(`Failed to spawn mysqldump for '${dbName}': ${err.message}`));
     });
 
-    child.on("close", (code) => {
-      writeStream.close();
+    let childExitCode: number | null = null;
+    let streamFinished = false;
 
-      if (code === 0) {
+    const checkDone = () => {
+      if (childExitCode === null || !streamFinished || settled) return;
+      settled = true;
+
+      if (childExitCode === 0) {
         try {
           fs.renameSync(tempFilePath, finalFilePath);
           resolve(finalFilePath);
         } catch (renameErr) {
-          if (fs.existsSync(tempFilePath)) {
-            try {
-              fs.unlinkSync(tempFilePath);
-            } catch {}
-          }
+          cleanupTemp();
           reject(renameErr);
         }
       } else {
-        if (fs.existsSync(tempFilePath)) {
-          try {
-            fs.unlinkSync(tempFilePath);
-          } catch {}
-        }
+        cleanupTemp();
         const errorMsg =
           stderrOutput.trim() ||
-          `mysqldump exited with error code ${code} for database '${dbName}'`;
+          `mysqldump exited with error code ${childExitCode} for database '${dbName}'`;
         reject(new Error(errorMsg));
       }
+    };
+
+    child.on("close", (code) => {
+      childExitCode = code ?? -1;
+      checkDone();
+    });
+
+    writeStream.on("finish", () => {
+      // 必须等待 writeStream 文件描述符在 Windows 上完全关闭后再进行重命名，杜绝 EBUSY 锁冲突
+      writeStream.close(() => {
+        streamFinished = true;
+        checkDone();
+      });
     });
   });
 }

@@ -20,9 +20,13 @@
 | `DB_PASSWORD` | *(留空)* | 否 | MySQL 用户密码。XAMPP 默认安装时 root 密码为空。 |
 | `MYSQLDUMP_PATH` | `C:\xampp\mysql\bin\mysqldump.exe` | 是 | XAMPP 原生提供的 `mysqldump` 可执行文件绝对路径。 |
 | `DEFAULT_BACKUP_DIR` | `./backups` | 是 | 默认备份文件存放目录。支持相对路径或系统绝对路径（如 `D:\backups`）。 |
+| `ALLOWED_BACKUP_ROOTS` | *(留空)* | 否 | 允许创建备份的合法磁盘根目录白名单（多路径以 `;` 分割）。配置后，所有备份目标目录必须位于其中。 |
+| `ALLOWED_SOURCE_ROOTS` | *(留空)* | 否 | 允许定时任务读取并归档的源文件夹根目录白名单（多路径以 `;` 分割）。配置后，所有源文件夹必须位于其中。 |
+| `BACKUP_TIMEZONE` | 系统本地时区 | 否 | 定时任务调度器所使用的时区（如 `Asia/Kuala_Lumpur`、`UTC`）。 |
 | `PORT` | `3003` | 否 | Web 控制台服务端监听端口。 |
 | `SESSION_SECRET` | 随机默认密钥 | 否 | 会话签名密钥（至少 32 字符），用于 HMAC-SHA256 签名校验。建议生产环境单独指定。 |
 | `INITIAL_ADMIN_PASSWORD` | `admin123` | 否 | 首次初始化创建 `admin` 账号时的初始密码（若已有 `data/users.json` 则忽略）。 |
+| `COOKIE_SECURE` | `false` | 否 | 是否启用仅 HTTPS 传输会话 Cookie（`secure: true`）。仅在以 HTTPS/SSL 协议对外提供服务时设为 `true`。 |
 
 ---
 

@@ -128,6 +128,7 @@ sequenceDiagram
 3. **会话安全规则与纵深防御机制 (Multi-Layer Defense & Session Security)**：
    - Cookie 启用 `HttpOnly`（JavaScript 脚本不可读，防 XSS 窃取）；
    - Cookie 启用 `SameSite=Lax` 与 `Path=/`，防范 CSRF 跨站伪造；
+   - Cookie 传输安全控制：默认遵循 `NODE_ENV === "production"`，支持通过 `.env` 中的 `COOKIE_SECURE=true/false` 显式覆盖（生产 HTTPS 环境下启用 `Secure` 确保仅加密链路传输；内网 HTTP 部署时可设为 `false` 防止浏览器丢弃 Cookie）；
    - 会话 Token 包含 HMAC-SHA256 服务端签名，篡改任何载荷将导致签名校验失败并失效；
    - **Edge 中间件校验 (L1 防线)**：在 Next.js Edge Middleware 中原生验证 HMAC 签名与过期时间戳，拦截非法请求并重定向至 `/login`，同时主动下发清空指令清除损坏的 Cookie；
    - **服务端实体与激活状态核验 (L2 防线 - `verifyAuthenticatedUser`)**：所有业务 API（数据库、调度、历史、手动导出、系统状态、用户管理）均严格校验 Token 中 `userId` 是否真实存在于 `data/users.json` 且状态处于 `active === true`。如遇账号被注销、禁用或数据重置，API 统一返回 401 并立即通过 `Set-Cookie` 清除浏览器旧 Cookie，根除“幽灵孤儿会话”；

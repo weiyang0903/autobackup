@@ -94,6 +94,9 @@ function registerCronTask(schedule: ScheduleItem): void {
     }
 
     try {
+      const timezone = process.env.BACKUP_TIMEZONE?.trim() || undefined;
+      const cronOptions = timezone ? { timezone } : undefined;
+
       const task = cron.schedule(
         expr,
         async () => {
@@ -123,7 +126,8 @@ function registerCronTask(schedule: ScheduleItem): void {
               err
             );
           }
-        }
+        },
+        cronOptions
       );
 
       registeredList.push(task);
@@ -140,10 +144,15 @@ function registerCronTask(schedule: ScheduleItem): void {
   }
 }
 
+let schedulerInitialized = false;
+
 /**
  * 初始化并加载全部启用的定时任务
  */
-export function initScheduler(): void {
+export function initScheduler(force: boolean = false): void {
+  if (schedulerInitialized && !force) {
+    return;
+  }
   console.log("[Scheduler] Initializing automated backup scheduler...");
   const schedules = getSchedules();
   for (const item of schedules) {
@@ -151,6 +160,7 @@ export function initScheduler(): void {
       registerCronTask(item);
     }
   }
+  schedulerInitialized = true;
   console.log(
     `[Scheduler] Loaded ${activeTasks.size} active automated schedule rules.`
   );

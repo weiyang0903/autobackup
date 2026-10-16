@@ -11,6 +11,41 @@ export function isValidDatabaseName(name: string): boolean {
 }
 
 /**
+ * 解析以分号分隔的环境变量根路径列表，统一转换为解析后的绝对路径
+ */
+export function getAllowedRoots(envVarName: string): string[] | null {
+  const raw = process.env[envVarName]?.trim();
+  if (!raw) return null;
+  return raw
+    .split(";")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((r) =>
+      path.isAbsolute(r)
+        ? path.resolve(r)
+        : path.resolve(/* turbopackIgnore: true */ process.cwd(), r)
+    );
+}
+
+/**
+ * 校验指定路径是否位于白名单根路径列表之内 (或本身就是该根路径)
+ */
+export function isPathInsideAnyRoot(
+  targetPath: string,
+  allowedRoots: string[]
+): boolean {
+  const resolvedTarget = path.resolve(targetPath);
+  return allowedRoots.some((root) => {
+    const resolvedRoot = path.resolve(root);
+    const rel = path.relative(
+      resolvedRoot.toLowerCase(),
+      resolvedTarget.toLowerCase()
+    );
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  });
+}
+
+/**
  * 校验并解析合法的绝对路径或相对于项目根目录的相对路径
  */
 export function resolveAndValidateBackupDir(dirPath: string): {
@@ -30,6 +65,18 @@ export function resolveAndValidateBackupDir(dirPath: string): {
   const resolved = path.isAbsolute(dirPath)
     ? path.resolve(dirPath)
     : path.resolve(/* turbopackIgnore: true */ process.cwd(), dirPath);
+
+  // 若配置了 ALLOWED_BACKUP_ROOTS，校验目标路径必须在白名单根目录之内
+  const allowedBackupRoots = getAllowedRoots("ALLOWED_BACKUP_ROOTS");
+  if (allowedBackupRoots && allowedBackupRoots.length > 0) {
+    if (!isPathInsideAnyRoot(resolved, allowedBackupRoots)) {
+      return {
+        isValid: false,
+        resolvedPath: resolved,
+        error: `Backup directory must be located inside ALLOWED_BACKUP_ROOTS (${allowedBackupRoots.join("; ")})`,
+      };
+    }
+  }
 
   // 确保目录存在，不存在则递归创建
   try {
@@ -79,6 +126,18 @@ export function validateSourceFolder(
         /* turbopackIgnore: true */ process.cwd(),
         backupRootDir
       );
+
+  // 若配置了 ALLOWED_SOURCE_ROOTS，校验源文件夹必须在白名单根目录之内
+  const allowedSourceRoots = getAllowedRoots("ALLOWED_SOURCE_ROOTS");
+  if (allowedSourceRoots && allowedSourceRoots.length > 0) {
+    if (!isPathInsideAnyRoot(resolvedSource, allowedSourceRoots)) {
+      return {
+        isValid: false,
+        resolvedPath: resolvedSource,
+        error: `Source folder must be located inside ALLOWED_SOURCE_ROOTS (${allowedSourceRoots.join("; ")})`,
+      };
+    }
+  }
 
   try {
     if (!fs.existsSync(resolvedSource)) {

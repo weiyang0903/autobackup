@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_SECRET =
   process.env.SESSION_SECRET || "autobackup_secure_session_secret_key_2026";
+const isCookieSecure = () => process.env.COOKIE_SECURE === "true";
 
 /**
  * 使用通用 Web Crypto API 校验 HMAC-SHA256 签名 (在 Next.js Middleware 中 100% 原生支持)
@@ -102,6 +103,7 @@ export async function proxy(req: NextRequest) {
           sameSite: "lax",
           path: "/",
           maxAge: 0,
+          secure: isCookieSecure(),
         });
       }
       return response;
@@ -118,6 +120,7 @@ export async function proxy(req: NextRequest) {
         sameSite: "lax",
         path: "/",
         maxAge: 0,
+        secure: isCookieSecure(),
       });
     }
     return response;

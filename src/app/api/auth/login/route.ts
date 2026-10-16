@@ -4,6 +4,7 @@ import {
   verifyPassword,
   createSessionToken,
   sanitizeUser,
+  isCookieSecure,
 } from "@/lib/auth";
 import { getUserByUsername, getUsers, saveUsers } from "@/lib/storage";
 
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
+      secure: isCookieSecure(),
     });
 
     return response;
